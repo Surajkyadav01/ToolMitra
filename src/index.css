@@ -1,0 +1,160 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  /* Classic Light Pure White & Friendly Blue Theme configuration */
+  --color-blue-50: #eff6ff; /* Soft sky blue helper backdrop */
+  --color-blue-100: #dbeafe; /* High-contrast blue border/accent highlight */
+  --color-blue-550: #3b82f6; /* Modern sky blue indicator */
+  --color-blue-600: #2563eb; /* Primary rich friendly blue */
+  --color-blue-700: #1d4ed8; /* Darker blue on mouse focus state */
+  --color-blue-650: #2563eb; /* Vibrant blue branding */
+  --color-blue-605: #3b82f6; /* Soft sky blue indicator */
+  
+  --color-indigo-50: #f0f7ff; /* Breathable soft blue backdrop */
+  --color-indigo-500: #3b82f6; /* Dynamic solid blue status */
+  --color-indigo-600: #2563eb; /* High visibility primary theme blue */
+  --color-indigo-700: #1d4ed8; /* Saturated hover action blue */
+  --color-indigo-750: #1e293b; /* Readable charcoal-slate text elements */
+  --color-indigo-850: #0f172a;
+  --color-indigo-650: #2563eb;
+  
+  --color-cyan-400: #60a5fa; /* Saturated blue accents for secondary cues */
+  --color-cyan-500: #3b82f6; /* Secondary action blue */
+  
+  --color-sky-400: #60a5fa;
+  --color-sky-500: #3b82f6;
+  
+  /* Slate & Grid overrides for crystal clear readability */
+  --color-slate-50: #ffffff; /* pure white backgrounds for crisp files and cards */
+  --color-slate-100: #f8fafc; /* premium clean light grey body background */
+  --color-slate-105: #ffffff; /* standard clean card bodies */
+  --color-slate-150: #f1f5f9; /* high clarity minimalist dividing border line */
+  --color-slate-205: #e2e8f0;
+  --color-slate-250: #cbd5e1;
+  --color-slate-805: #1e293b;
+  --color-slate-850: #1e293b; /* crisp dark text content */
+  --color-slate-950: #0f172a; /* standard dark mode backdrop if fallback */
+  --color-slate-705: #334155;
+  --color-slate-702: #475569;
+}
+
+/* Custom smooth transitions and animations */
+@layer base {
+  body {
+    @apply font-sans antialiased transition-colors duration-300;
+  }
+}
+
+/* Global Dark Mode form styling safety guards */
+.dark input:not([type="color"]):not([type="checkbox"]):not([type="radio"]),
+.dark textarea,
+.dark select {
+  background-color: #1e293b !important; /* bg-slate-800 equivalent */
+  color: #f8fafc !important; /* text-slate-50 equivalent */
+  border-color: #334155 !important; /* border-slate-700 equivalent */
+}
+
+.dark input:not([type="color"]):not([type="checkbox"]):not([type="radio"])::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important; /* text-slate-500 equivalent */
+}
+
+/* Let's also style sub-cards inside tools for better dark mode visibility */
+.dark .bg-white:not([class*="keep-white"]):not(.keep-white) {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #f1f5f9 !important;
+  border-color: #1e293b !important;
+}
+
+.dark label {
+  color: #94a3b8 !important; /* Ensure labels are visible as light steel grey */
+}
+
+/* Custom scrollbar and glow effects */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+/* Focus and card glow classes */
+.glow-blue {
+  box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.15);
+}
+
+.glow-indigo {
+  box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.15);
+}
+
+/* Gentle premium bouncing and glowing status dot */
+@keyframes indicator-bounce {
+  0%, 100% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(-5.5px);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.animate-indicator-bounce {
+  animation: indicator-bounce 2.2s infinite;
+}
+
+/* Custom premium search input focus states overriding global properties */
+.search-input {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-input:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+  background-color: #ffffff !important;
+}
+
+.dark .search-input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+  background-color: #1e293b !important;
+}
+
+/* Date calendar picker native indicator styling improvements */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(0.95);
+}
+

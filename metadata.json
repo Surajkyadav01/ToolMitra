@@ -1,0 +1,6 @@
+{
+  "name": "ToolMitra",
+  "description": "Free online tools for PDF editing, image processing, passport photo generation, signature resizing, and document preparation directly in your browser.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
