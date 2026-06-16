@@ -3,6 +3,8 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
+// @ts-ignore
+import WordExtractor from 'word-extractor';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -175,6 +177,102 @@ Aesthetically match the original resume format cleanly by following these rules 
       return res.status(500).json({
         error: 'SERVER_ERROR',
         message: err.message || 'An unexpected server error occurred during conversion.'
+      });
+    }
+  });
+
+  // Convert legacy .doc binary files to gorgeous HTML using a local parser paired with Gemini!
+  app.post('/api/doc-to-html', async (req, res) => {
+    try {
+      const { base64Data, fileName } = req.body;
+      if (!base64Data) {
+        return res.status(400).json({ error: 'DATA_MISSING', message: 'No file data received.' });
+      }
+
+      let ai;
+      try {
+        ai = getGeminiClient();
+      } catch (e: any) {
+        return res.status(400).json({
+          error: 'GEMINI_API_KEY_MISSING',
+          message: 'Gemini API key is not configured. Cannot process legacy .doc file.'
+        });
+      }
+
+      // Convert Base64 data to Node buffer
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      // Check if it is a text-based file (HTML format, RTF format, or plain text) rather than OLE binary doc
+      const rawText = buffer.toString('utf8');
+      const isHtmlOrText = rawText.trim().startsWith('<') || 
+                           rawText.includes('<!DOCTYPE') ||
+                           rawText.includes('<html>') ||
+                           (!rawText.includes('\x00') && rawText.length > 10);
+
+      // Extract text content from Word document
+      let documentText = '';
+      if (isHtmlOrText) {
+        console.log('Document is raw HTML or text-based. Processing directly.');
+        documentText = rawText.substring(0, 50000); // safety cap
+      } else {
+        try {
+          // @ts-ignore
+          const extractor = new WordExtractor();
+          const extracted = await extractor.extract(buffer);
+          documentText = extracted.getBody();
+        } catch (extractorErr: any) {
+          console.error('word-extractor failed, trying advanced text extraction:', extractorErr);
+          // Safe match for readable alphanumeric characters, punctuation and basic text structure
+          const matches = rawText.match(/[\x20-\x7E\s\r\n\t]{4,}/g);
+          if (matches) {
+            // Filter out long sequences of non-alphanumeric chars or mostly punctuation (common in binaries)
+            documentText = matches
+              .filter(line => !/^[^\w\s\d]{4,}$/.test(line.trim()))
+              .join('\n')
+              .substring(0, 50000); // safety cap
+          } else {
+            documentText = 'Unable to extract clean text from this binary format.';
+          }
+        }
+      }
+
+      const systemInstruction = 
+`You are an expert Document and Resume Conversion System.
+Your job is to read and parse the text extracted from a legacy Microsoft Word binary (.doc) file and convert it into a beautifully structured, highly professional, standard HTML body.
+
+Guidelines:
+1. Reconstruct all major elements: headers, contact bars, lists, tables, bold text, dates, and sections.
+2. Structure headings clearly using <h1>, <h2>, and <h3>.
+3. If there are tables (such as Academic History, Marks, or Experience), format them as real standard HTML <table> elements with simple borders.
+4. Output cleanly and preserve 100% of the content. Do not summarize or omit anything.
+5. Return ONLY the clean HTML inside a single \`\`\`html...\`\`\` code block.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: [
+          documentText,
+          "Parse this extracted Word document text and convert it to a pristine HTML document structure."
+        ],
+        config: {
+          systemInstruction: systemInstruction,
+          temperature: 0.1,
+        },
+      });
+
+      const parsedText = response.text || "";
+      const htmlBlockMatch = parsedText.match(/```html([\s\S]*?)```/) || parsedText.match(/```([\s\S]*?)```/);
+      const htmlContent = htmlBlockMatch ? htmlBlockMatch[1].trim() : parsedText.trim();
+
+      return res.json({
+        success: true,
+        html: htmlContent
+      });
+
+    } catch (err: any) {
+      console.error('Server error converting .doc to HTML:', err);
+      return res.status(500).json({
+        error: 'SERVER_ERROR',
+        message: err.message || 'An unexpected server error occurred during legacy document conversion.'
       });
     }
   });

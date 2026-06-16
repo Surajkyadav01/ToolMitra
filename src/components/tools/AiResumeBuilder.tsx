@@ -3,7 +3,7 @@ import LucideIcon from '../LucideIcon';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
 
-type TemplateType = 'ats-professional' | 'modern-indigo' | 'fresher-clean' | 'developer';
+type TemplateType = 'traditional-format' | 'ats-professional' | 'modern-indigo' | 'fresher-clean' | 'developer';
 
 interface EduEntry {
   degree: string;
@@ -33,7 +33,7 @@ interface CertEntry {
 
 export default function AiResumeBuilder() {
   const [step, setStep] = useState<number>(1);
-  const [template, setTemplate] = useState<TemplateType>('ats-professional');
+  const [template, setTemplate] = useState<TemplateType>('traditional-format');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
@@ -42,7 +42,8 @@ export default function AiResumeBuilder() {
     setTimeout(() => setToast(null), 7000);
   };
 
-  // Form states
+  // Form states empty so users can fill their own details easily and avoid confusion
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [personal, setPersonal] = useState({
     name: '',
     title: '',
@@ -53,6 +54,13 @@ export default function AiResumeBuilder() {
     portfolio: '',
     github: '',
     twitter: '',
+    fatherName: '',
+    dob: '',
+    languages: '',
+    gender: '',
+    nationality: '',
+    maritalStatus: '',
+    declaration: 'I hereby declare that the above information given by me is true to best of my Knowledge.',
   });
 
   const [objective, setObjective] = useState('');
@@ -193,58 +201,224 @@ export default function AiResumeBuilder() {
 
     // Define visual templates styling maps
     let templateCss = '';
-    if (template === 'ats-professional') {
+    if (template === 'traditional-format') {
       templateCss = `
-        body { font-family: 'Georgia', serif; padding: 0.5in; color: #111; line-height: 1.4; font-size: 10pt; }
-        h1 { font-size: 20pt; text-align: center; margin: 0 0 4pt 0; text-transform: uppercase; font-weight: normal; letter-spacing: 1px; }
-        .subtitle { text-align: center; font-style: italic; color: #555; margin-bottom: 12pt; border-bottom: 1px solid #111; padding-bottom: 6pt; }
-        .section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #000; margin: 14pt 0 6pt 0; padding-bottom: 1px; letter-spacing: 0.5px; }
-        .item { margin-bottom: 10pt; }
-        .item-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 1pt; }
-        .item-sub { display: flex; justify-content: space-between; font-style: italic; color: #444; margin-bottom: 2pt; }
+        body { font-family: 'Segoe UI', 'Arial', sans-serif; padding: 0.4in 0.5in; color: #111111; line-height: 1.45; font-size: 10pt; background: #fff; }
+        .resume-header-title { text-align: center; font-size: 18pt; font-weight: bold; color: #000; text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; }
+        .personal-name { font-size: 20pt; font-weight: bold; color: #000; margin-bottom: 2px; }
+        .personal-title { font-size: 11pt; font-style: normal; color: #1e3a8a; margin-bottom: 8px; font-weight: bold; }
+        .contact-split { display: flex; justify-content: space-between; font-size: 10pt; margin-top: 5px; line-height: 1.4; color: #111; }
+        .contact-left { width: 55%; }
+        .contact-right { width: 45%; text-align: right; }
+        .primary-hr { border: none; border-top: 1.5px solid #000; margin: 8px 0 15px 0; }
+        .section-banner { background-color: #e0f2fe; color: #1e3a8a; padding: 5px 10px; font-size: 11pt; font-weight: bold; text-transform: uppercase; margin-top: 18px; margin-bottom: 10px; border-radius: 2px; letter-spacing: 0.5px; border: 1px solid #bae6fd; font-family: 'Segoe UI', sans-serif; }
+        .section-text { font-size: 10pt; color: #111; margin-bottom: 12px; text-align: justify; line-height: 1.5; }
+        .academic-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; border: 1.5px solid #000; }
+        .academic-table th { background-color: #f1f5f9; color: #0f172a; font-weight: bold; font-size: 9.5pt; border: 1px solid #000; padding: 6px; text-align: left; }
+        .academic-table td { font-size: 9.5pt; border: 1px solid #000; padding: 6px; color: #111; }
+        .bullet-list { margin: 5px 0 12px 20px; padding: 0; list-style-type: disc; }
+        .bullet-list li { font-size: 10pt; color: #111; margin-bottom: 5px; line-height: 1.4; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .info-table td { font-size: 10pt; padding: 3px 0; vertical-align: top; color: #111; }
+        .info-label { width: 25%; font-weight: bold; }
+        .info-colon { width: 5%; text-align: center; }
+        .info-val { width: 70%; }
+        .footer-signature { display: flex; justify-content: space-between; margin-top: 35px; font-size: 10pt; font-weight: bold; color: #111; }
+      `;
+    } else if (template === 'ats-professional') {
+      templateCss = `
+        body { font-family: 'Georgia', serif; padding: 0.45in; color: #1e293b; line-height: 1.4; font-size: 9.5pt; background: #fff; }
+        h1 { font-size: 20pt; text-align: center; margin: 0 0 3pt 0; text-transform: uppercase; font-weight: bold; color: #1e3a8a; letter-spacing: 0.5px; }
+        .subtitle { text-align: center; font-style: italic; color: #2563eb; font-size: 10.5pt; font-weight: 500; margin-bottom: 3pt; }
+        .contact-bar { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; font-size: 8.5pt; color: #475569; margin-bottom: 10pt; border-bottom: 2px solid #2563eb; padding-bottom: 6px; }
+        .section-title { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; color: #1e3a8a; border-bottom: 1.5px solid #3b82f6; margin: 12pt 0 5pt 0; padding-bottom: 2px; letter-spacing: 0.8px; }
+        .item { margin-bottom: 8pt; }
+        .item-header { display: flex; justify-content: space-between; font-weight: bold; color: #0f172a; margin-bottom: 0.5pt; }
+        .item-sub { display: flex; justify-content: space-between; font-style: italic; color: #2563eb; margin-bottom: 2pt; font-size: 9pt; }
         ul { margin: 2pt 0 0 14pt; padding: 0; }
         li { margin-bottom: 2pt; }
+        p { margin: 3pt 0 0 0; text-align: justify; color: #334155; }
       `;
     } else if (template === 'modern-indigo') {
       templateCss = `
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0.5in; color: #334155; line-height: 1.45; font-size: 9.5pt; }
-        h1 { font-size: 22pt; color: #4f46e5; margin: 0 0 2pt 0; font-weight: 800; tracking: -0.5px; }
-        .title-desc { font-size: 11pt; color: #64748b; font-weight: 600; margin-bottom: 8pt; }
-        .contact-bar { display: flex; flex-wrap: wrap; gap: 8pt; font-size: 8.5pt; color: #64748b; margin-bottom: 16pt; border-bottom: 2px solid #e2e8f0; padding-bottom: 10pt; }
-        .section-title { font-size: 12pt; font-weight: 700; color: #4f46e5; margin: 16pt 0 8pt 0; text-transform: uppercase; letter-spacing: 1px; }
+        body { font-family: 'Segoe UI', 'Inter', sans-serif; padding: 0.45in; color: #334155; line-height: 1.45; font-size: 9.5pt; background: #fff; }
+        h1 { font-size: 22pt; color: #1e3a8a; margin: 0 0 2pt 0; font-weight: bold; letter-spacing: -0.5px; }
+        .title-desc { font-size: 11pt; color: #2563eb; font-weight: 600; margin-bottom: 6pt; }
+        .contact-bar { display: flex; flex-wrap: wrap; gap: 8pt; font-size: 8.5pt; color: #475569; margin-bottom: 12pt; border-bottom: 2px solid #93c5fd; padding-bottom: 8px; }
+        .section-title { font-size: 11.5pt; font-weight: bold; color: #1e3a8a; margin: 14pt 0 6pt 0; text-transform: uppercase; letter-spacing: 1px; border-left: 3.5px solid #2563eb; padding-left: 8px; }
         .item { margin-bottom: 8pt; }
-        .item-header { display: flex; justify-content: space-between; font-weight: 700; color: #1e293b; }
-        .item-sub { display: flex; justify-content: space-between; color: #64748b; font-size: 9pt; margin-bottom: 2pt; }
+        .item-header { display: flex; justify-content: space-between; font-weight: bold; color: #0f172a; }
+        .item-sub { display: flex; justify-content: space-between; color: #2563eb; font-size: 9pt; margin-bottom: 2pt; font-weight: 500; }
+        p { margin: 3pt 0 0 0; text-align: justify; color: #475569; }
       `;
     } else if (template === 'fresher-clean') {
       templateCss = `
-        body { font-family: 'Calibri', sans-serif; padding: 0.5in; color: #2d3748; line-height: 1.4; font-size: 10pt; }
-        h1 { font-size: 24pt; color: #2b6cb0; margin: 0 0 4pt 0; text-align: left; font-weight: bold; }
-        .contact-bar { font-size: 9pt; color: #718096; margin-bottom: 14pt; border-bottom: 1px dashed #cbd5e0; padding-bottom: 6pt; }
-        .section-title { font-size: 12pt; font-weight: bold; color: #2b6cb0; margin: 16pt 0 6pt 0; border-left: 4px solid #2b6cb0; padding-left: 6px; }
-        .item { margin-bottom: 8pt; }
-        .item-header { display: flex; justify-content: space-between; font-weight: bold; }
-        .item-sub { display: flex; justify-content: space-between; color: #4a5568; margin-bottom: 2pt; }
+        body { font-family: 'Segoe UI', 'Calibri', sans-serif; padding: 0.45in; color: #1e293b; line-height: 1.4; font-size: 9.5pt; background: #fff; }
+        h1 { font-size: 22pt; color: #1e3a8a; margin: 0 0 2pt 0; text-align: left; font-weight: bold; }
+        .subtitle { text-align: left; color: #2563eb; font-size: 11pt; font-weight: 500; margin-bottom: 4pt; }
+        .contact-bar { font-size: 8.5pt; color: #475569; margin-bottom: 12pt; border-bottom: 1.5px dashed #93c5fd; padding-bottom: 6px; }
+        .section-title { font-size: 11pt; font-weight: bold; color: #1e3a8a; margin: 12pt 0 5pt 0; border-left: 4px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .item { margin-bottom: 6pt; }
+        .item-header { display: flex; justify-content: space-between; font-weight: bold; color: #011627; }
+        .item-sub { display: flex; justify-content: space-between; color: #2563eb; margin-bottom: 2pt; font-weight: 500; }
+        p { margin: 2pt 0 0 0; text-align: justify; color: #334155; }
       `;
     } else {
       // Developer Two-column Layout code representation
       templateCss = `
-        body { font-family: 'Consolas', monospace; padding: 0.4in; color: #011627; line-height: 1.4; font-size: 9pt; }
-        .header { border-bottom: 3px double #011527; padding-bottom: 10pt; margin-bottom: 14pt; }
-        h1 { font-size: 20pt; margin: 0; color: #011627; }
+        body { font-family: 'Consolas', 'Fira Code', monospace; padding: 0.4in; color: #0f172a; line-height: 1.35; font-size: 9pt; background: #fff; }
+        .header { border-bottom: 3px double #2563eb; padding-bottom: 8pt; margin-bottom: 12pt; }
+        h1 { font-size: 18pt; margin: 0; color: #1e3a8a; font-weight: bold; }
         .contact-bar { font-size: 8.5pt; color: #475569; margin-top: 4pt; }
-        .layout-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 16pt; }
-        .section-title { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px dashed #011627; margin: 14pt 0 6pt 0; padding-bottom: 2px; }
-        .side-section-title { font-size: 9.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #111; margin-bottom: 6pt; margin-top: 10pt; }
-        .item { margin-bottom: 8pt; }
-        .item-header { font-weight: bold; display: flex; justify-content: space-between; }
-        .badge { display: inline-block; background-color: #f1f5f9; border: 1px solid #cbd5e1; padding: 1px 4px; font-size: 8pt; margin: 1px; }
+        .layout-grid { display: grid; grid-template-columns: 2.8fr 1.2fr; gap: 14pt; }
+        .section-title { font-size: 10pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px dashed #2563eb; margin: 12pt 0 5pt 0; padding-bottom: 1px; color: #1e3a8a; }
+        .side-section-title { font-size: 9.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1.5px solid #2563eb; margin-bottom: 5pt; margin-top: 10pt; color: #1e3a8a; }
+        .item { margin-bottom: 6pt; }
+        .item-header { font-weight: bold; display: flex; justify-content: space-between; color: #0f172a; }
+        .badge { display: inline-block; background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 1px 5px; font-size: 8pt; margin: 1px; border-radius: 4px; }
+        p { margin: 2pt 0 0 0; color: #334155; }
       `;
     }
 
     // Build the structural HTML for printing document layouts
     let bodyContent = '';
-    if (template !== 'developer') {
+    if (template === 'traditional-format') {
+      bodyContent = `
+        <div class="resume-header-title">RESUME</div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+          <div style="flex: 1; min-width: 0; padding-right: 15px;">
+            <div class="personal-name">${personal.name || 'Your Name'}</div>
+            <div class="personal-title">${personal.title || 'Target Role'}</div>
+            
+            <div class="contact-split">
+              <div class="contact-left">
+                ${personal.location ? `<strong>Address:</strong><br/>${personal.location.replace(/\n/g, '<br/>')}` : ''}
+              </div>
+              <div class="contact-right">
+                ${personal.phone ? `<strong>Mob No.:</strong> ${personal.phone}<br/>` : ''}
+                ${personal.email ? `<strong>Email Id:</strong> ${personal.email}` : ''}
+              </div>
+            </div>
+          </div>
+          ${profileImage ? `
+            <div style="width: 1.05in; height: 1.3in; border: 1.5px solid #000; padding: 1.5px; text-align: center; background-color: #fff; flex-shrink: 0; margin-left: 15px; margin-top: 5px;">
+              <img src="${profileImage}" style="width: 100%; height: 100%; object-fit: cover;" />
+            </div>
+          ` : ''}
+        </div>
+        <hr class="primary-hr" />
+
+        ${objective ? `
+          <div class="section-banner">Career Objective</div>
+          <div class="section-text">${objective}</div>
+        ` : ''}
+
+        <div class="section-banner">Academic Qualification</div>
+        <table class="academic-table">
+          <thead>
+            <tr>
+              <th style="text-align: center; width: 8%;">S.No.</th>
+              <th style="width: 32%;">Qualification</th>
+              <th style="width: 35%;">University / Board</th>
+              <th style="text-align: center; width: 12%;">Year</th>
+              <th style="text-align: center; width: 13%;">Per %</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${education.map((edu, idx) => `
+              <tr>
+                <td style="text-align: center;">${idx + 1}</td>
+                <td>${edu.degree}</td>
+                <td>${edu.school}</td>
+                <td style="text-align: center;">${edu.year}</td>
+                <td style="text-align: center;">${edu.gpa}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        ${skills.technical || skills.soft ? `
+          <div class="section-banner">Other Qualification</div>
+          <ul class="bullet-list">
+            ${skills.technical ? `<li>${skills.technical}</li>` : ''}
+            ${skills.soft ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : ''}
+          </ul>
+        ` : ''}
+
+        ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? `
+          <div class="section-banner">Work Experience</div>
+          <ul class="bullet-list">
+            ${experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
+              <li><strong>${exp.role}</strong> at <strong>${exp.company}</strong> (${exp.duration})${exp.details ? `<br/><em>${exp.details}</em>` : ''}</li>
+            `).join('')}
+          </ul>
+        ` : ''}
+
+        ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? `
+          <div class="section-banner">Key Projects &amp; Products</div>
+          <ul class="bullet-list">
+            ${projects.filter(proj => proj.title.trim()).map(proj => `
+              <li><strong>${proj.title}</strong> ${proj.tech ? `[${proj.tech}]` : ''} ${proj.details ? `<br/><em>${proj.details}</em>` : ''}</li>
+            `).join('')}
+          </ul>
+        ` : ''}
+
+        ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? `
+          <div class="section-banner">Certifications &amp; Achievements</div>
+          <ul class="bullet-list">
+            ${certs.filter(c => c.name.trim()).map(c => `
+              <li><strong>${c.name}</strong>${c.issuer ? ` - Issued by <em>${c.issuer}</em>` : ''}${c.year ? ` (${c.year})` : ''}</li>
+            `).join('')}
+          </ul>
+        ` : ''}
+
+        <div class="section-banner">Personal Information</div>
+        <table class="info-table">
+          <tbody>
+            <tr>
+              <td class="info-label">Father's Name</td>
+              <td class="info-colon">:</td>
+              <td class="info-val">${personal.fatherName || 'Not Specified'}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Date of Birth</td>
+              <td class="info-colon">:</td>
+              <td class="info-val">${personal.dob || 'Not Specified'}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Language Known</td>
+              <td class="info-colon">:</td>
+              <td class="info-val">${personal.languages || 'Not Specified'}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Gender</td>
+              <td class="info-colon">:</td>
+              <td class="info-val">${personal.gender || 'Not Specified'}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Nationality</td>
+              <td class="info-colon">:</td>
+              <td class="info-val">${personal.nationality || 'Not Specified'}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Marital Status</td>
+              <td class="info-colon">:</td>
+              <td class="info-val">${personal.maritalStatus || 'Not Specified'}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        ${personal.declaration ? `
+          <div class="section-banner">Declaration</div>
+          <div class="section-text">${personal.declaration}</div>
+        ` : ''}
+
+        <div class="footer-signature">
+          <div>Date :</div>
+          <div style="margin-right: 30px;">(${personal.name})</div>
+        </div>
+      `;
+    } else if (template !== 'developer') {
       bodyContent = `
         <h1>${personal.name}</h1>
         <div class="subtitle">${personal.title}</div>
@@ -432,131 +606,294 @@ export default function AiResumeBuilder() {
 
   const downloadPdfResume = () => {
     setIsGenerating(true);
-    const originalScrollX = window.scrollX;
-    const originalScrollY = window.scrollY;
-    
-    // Temporarily scroll to top-left to avoid html2canvas blank offsets on scroll
-    window.scrollTo(0, 0);
 
     let templateCss = '';
-    if (template === 'ats-professional') {
+    if (template === 'traditional-format') {
       templateCss = `
-        .pdf-resume { font-family: 'Georgia', serif; padding: 0.4in; color: #111; line-height: 1.4; font-size: 10pt; background: #fff; }
-        .pdf-resume h1 { font-size: 20pt; text-align: center; margin: 0 0 4pt 0; text-transform: uppercase; font-weight: normal; letter-spacing: 1px; }
-        .pdf-resume .subtitle { text-align: center; font-style: italic; color: #555; margin-bottom: 12pt; border-bottom: 1px solid #111; padding-bottom: 6pt; }
-        .pdf-resume .section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #000; margin: 14pt 0 6pt 0; padding-bottom: 1px; letter-spacing: 0.5px; }
-        .pdf-resume .item { margin-bottom: 10pt; }
-        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 1pt; }
-        .pdf-resume .item-sub { display: flex; justify-content: space-between; font-style: italic; color: #444; margin-bottom: 2pt; }
+        .pdf-resume { font-family: 'Segoe UI', 'Arial', sans-serif; padding: 0.4in 0.5in; color: #111111; line-height: 1.45; font-size: 10pt; background: #fff; }
+        .pdf-resume .resume-header-title { text-align: center; font-size: 18pt; font-weight: bold; color: #000; text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; }
+        .pdf-resume .personal-name { font-size: 20pt; font-weight: bold; color: #000; margin-bottom: 2px; }
+        .pdf-resume .personal-title { font-size: 11pt; font-style: normal; color: #1e3a8a; margin-bottom: 8px; font-weight: bold; }
+        .pdf-resume .contact-split { display: flex; justify-content: space-between; font-size: 10pt; margin-top: 5px; line-height: 1.4; color: #111; }
+        .pdf-resume .contact-left { width: 55%; }
+        .pdf-resume .contact-right { width: 45%; text-align: right; }
+        .pdf-resume .primary-hr { border: none; border-top: 1.5px solid #000; margin: 8px 0 15px 0; }
+        .pdf-resume .section-banner { background-color: #e0f2fe; color: #1e3a8a; padding: 5px 10px; font-size: 11pt; font-weight: bold; text-transform: uppercase; margin-top: 18px; margin-bottom: 10px; border-radius: 2px; letter-spacing: 0.5px; border: 1px solid #bae6fd; font-family: 'Segoe UI', sans-serif; }
+        .pdf-resume .section-text { font-size: 10pt; color: #111; margin-bottom: 12px; text-align: justify; line-height: 1.5; }
+        .pdf-resume .academic-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; border: 1.5px solid #000; }
+        .pdf-resume .academic-table th { background-color: #f1f5f9; color: #0f172a; font-weight: bold; font-size: 9.5pt; border: 1px solid #000; padding: 6px; text-align: left; }
+        .pdf-resume .academic-table td { font-size: 9.5pt; border: 1px solid #000; padding: 6px; color: #111; }
+        .pdf-resume .bullet-list { margin: 5px 0 12px 20px; padding: 0; list-style-type: disc; }
+        .pdf-resume .bullet-list li { font-size: 10pt; color: #111; margin-bottom: 5px; line-height: 1.4; }
+        .pdf-resume .info-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .pdf-resume .info-table td { font-size: 10pt; padding: 3px 0; vertical-align: top; color: #111; }
+        .pdf-resume .info-label { width: 25%; font-weight: bold; }
+        .pdf-resume .info-colon { width: 5%; text-align: center; }
+        .pdf-resume .info-val { width: 70%; }
+        .pdf-resume .footer-signature { display: flex; justify-content: space-between; margin-top: 35px; font-size: 10pt; font-weight: bold; color: #111; }
+      `;
+    } else if (template === 'ats-professional') {
+      templateCss = `
+        .pdf-resume { font-family: 'Georgia', serif; padding: 0.45in; color: #1e293b; line-height: 1.4; font-size: 9.5pt; background: #fff; }
+        .pdf-resume h1 { font-size: 20pt; text-align: center; margin: 0 0 3pt 0; text-transform: uppercase; font-weight: bold; color: #1e3a8a; letter-spacing: 0.5px; }
+        .pdf-resume .subtitle { text-align: center; font-style: italic; color: #2563eb; font-size: 10.5pt; font-weight: 500; margin-bottom: 3pt; }
+        .pdf-resume .contact-bar { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; font-size: 8.5pt; color: #475569; margin-bottom: 10pt; border-bottom: 2px solid #2563eb; padding-bottom: 6px; }
+        .pdf-resume .section-title { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; color: #1e3a8a; border-bottom: 1.5px solid #3b82f6; margin: 12pt 0 5pt 0; padding-bottom: 2px; letter-spacing: 0.8px; }
+        .pdf-resume .item { margin-bottom: 8pt; }
+        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: bold; color: #0f172a; margin-bottom: 0.5pt; }
+        .pdf-resume .item-sub { display: flex; justify-content: space-between; font-style: italic; color: #2563eb; margin-bottom: 2pt; font-size: 9pt; }
         .pdf-resume ul { margin: 2pt 0 0 14pt; padding: 0; }
         .pdf-resume li { margin-bottom: 2pt; }
+        .pdf-resume p { margin: 3pt 0 0 0; text-align: justify; color: #334155; }
       `;
     } else if (template === 'modern-indigo') {
       templateCss = `
-        .pdf-resume { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0.4in; color: #334155; line-height: 1.45; font-size: 9.5pt; background: #fff; }
-        .pdf-resume h1 { font-size: 22pt; color: #4f46e5; margin: 0 0 2pt 0; font-weight: 800; }
-        .pdf-resume .title-desc { font-size: 11pt; color: #64748b; font-weight: 600; margin-bottom: 8pt; }
-        .pdf-resume .contact-bar { display: flex; flex-wrap: wrap; gap: 8pt; font-size: 8.5pt; color: #64748b; margin-bottom: 16pt; border-bottom: 2px solid #e2e8f0; padding-bottom: 10pt; }
-        .pdf-resume .section-title { font-size: 12pt; font-weight: 700; color: #4f46e5; margin: 16pt 0 8pt 0; text-transform: uppercase; letter-spacing: 1px; }
+        .pdf-resume { font-family: 'Segoe UI', 'Inter', sans-serif; padding: 0.45in; color: #334155; line-height: 1.45; font-size: 9.5pt; background: #fff; }
+        .pdf-resume h1 { font-size: 22pt; color: #1e3a8a; margin: 0 0 2pt 0; font-weight: bold; letter-spacing: -0.5px; }
+        .pdf-resume .title-desc { font-size: 11pt; color: #2563eb; font-weight: 600; margin-bottom: 6pt; }
+        .pdf-resume .contact-bar { display: flex; flex-wrap: wrap; gap: 8pt; font-size: 8.5pt; color: #475569; margin-bottom: 12pt; border-bottom: 2px solid #93c5fd; padding-bottom: 8px; }
+        .pdf-resume .section-title { font-size: 11.5pt; font-weight: bold; color: #1e3a8a; margin: 14pt 0 6pt 0; text-transform: uppercase; letter-spacing: 1px; border-left: 3.5px solid #2563eb; padding-left: 8px; }
         .pdf-resume .item { margin-bottom: 8pt; }
-        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: 700; color: #1e293b; }
-        .pdf-resume .item-sub { display: flex; justify-content: space-between; color: #64748b; font-size: 9pt; margin-bottom: 2pt; }
+        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: bold; color: #0f172a; }
+        .pdf-resume .item-sub { display: flex; justify-content: space-between; color: #2563eb; font-size: 9pt; margin-bottom: 2pt; font-weight: 500; }
+        .pdf-resume p { margin: 3pt 0 0 0; text-align: justify; color: #475569; }
       `;
     } else if (template === 'fresher-clean') {
       templateCss = `
-        .pdf-resume { font-family: 'Calibri', sans-serif; padding: 0.4in; color: #2d3748; line-height: 1.4; font-size: 10pt; background: #fff; }
-        .pdf-resume h1 { font-size: 24pt; color: #2b6cb0; margin: 0 0 4pt 0; text-align: left; font-weight: bold; }
-        .pdf-resume .contact-bar { font-size: 9pt; color: #718096; margin-bottom: 14pt; border-bottom: 1px dashed #cbd5e0; padding-bottom: 6pt; }
-        .pdf-resume .section-title { font-size: 12pt; font-weight: bold; color: #2b6cb0; margin: 16pt 0 6pt 0; border-left: 4px solid #2b6cb0; padding-left: 6px; }
-        .pdf-resume .item { margin-bottom: 8pt; }
-        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: bold; }
-        .pdf-resume .item-sub { display: flex; justify-content: space-between; color: #4a5568; margin-bottom: 2pt; }
+        .pdf-resume { font-family: 'Segoe UI', 'Calibri', sans-serif; padding: 0.45in; color: #1e293b; line-height: 1.4; font-size: 9.5pt; background: #fff; }
+        .pdf-resume h1 { font-size: 22pt; color: #1e3a8a; margin: 0 0 2pt 0; text-align: left; font-weight: bold; }
+        .pdf-resume .subtitle { text-align: left; color: #2563eb; font-size: 11pt; font-weight: 500; margin-bottom: 4pt; }
+        .pdf-resume .contact-bar { font-size: 8.5pt; color: #475569; margin-bottom: 12pt; border-bottom: 1.5px dashed #93c5fd; padding-bottom: 6px; }
+        .pdf-resume .section-title { font-size: 11pt; font-weight: bold; color: #1e3a8a; margin: 12pt 0 5pt 0; border-left: 4px solid #2563eb; padding-left: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .pdf-resume .item { margin-bottom: 6pt; }
+        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: bold; color: #011627; }
+        .pdf-resume .item-sub { display: flex; justify-content: space-between; color: #2563eb; margin-bottom: 2pt; font-weight: 500; }
+        .pdf-resume p { margin: 2pt 0 0 0; text-align: justify; color: #334155; }
       `;
     } else {
       templateCss = `
-        .pdf-resume { font-family: 'Consolas', monospace; padding: 0.4in; color: #011627; line-height: 1.4; font-size: 9pt; background: #fff; }
-        .pdf-resume .header { border-bottom: 3px double #011527; padding-bottom: 10pt; margin-bottom: 14pt; }
-        .pdf-resume h1 { font-size: 20pt; margin: 0; color: #011627; }
+        .pdf-resume { font-family: 'Consolas', 'Fira Code', monospace; padding: 0.4in; color: #0f172a; line-height: 1.35; font-size: 9pt; background: #fff; }
+        .pdf-resume .header { border-bottom: 3px double #2563eb; padding-bottom: 8pt; margin-bottom: 12pt; }
+        .pdf-resume h1 { font-size: 18pt; margin: 0; color: #1e3a8a; font-weight: bold; }
         .pdf-resume .contact-bar { font-size: 8.5pt; color: #475569; margin-top: 4pt; }
-        .pdf-resume .layout-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 16pt; }
-        .pdf-resume .section-title { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px dashed #011627; margin: 14pt 0 6pt 0; padding-bottom: 2px; }
-        .pdf-resume .side-section-title { font-size: 9.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #111; margin-bottom: 6pt; margin-top: 10pt; }
-        .pdf-resume .item { margin-bottom: 8pt; }
-        .pdf-resume .item-header { font-weight: bold; display: flex; justify-content: space-between; }
-        .pdf-resume .badge { display: inline-block; background-color: #f1f5f9; border: 1px solid #cbd5e1; padding: 1px 4px; font-size: 8pt; margin: 1px; }
+        .pdf-resume .layout-grid { display: grid; grid-template-columns: 2.8fr 1.2fr; gap: 14pt; }
+        .pdf-resume .section-title { font-size: 10pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px dashed #2563eb; margin: 12pt 0 5pt 0; padding-bottom: 1px; color: #1e3a8a; }
+        .pdf-resume .side-section-title { font-size: 9.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1.5px solid #2563eb; margin-bottom: 5pt; margin-top: 10pt; color: #1e3a8a; }
+        .pdf-resume .item { margin-bottom: 6pt; }
+        .pdf-resume .item-header { font-weight: bold; display: flex; justify-content: space-between; color: #0f172a; }
+        .pdf-resume .badge { display: inline-block; background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 1px 5px; font-size: 8pt; margin: 1px; border-radius: 4px; }
+        .pdf-resume p { margin: 2pt 0 0 0; color: #334155; }
       `;
     }
 
     let bodyContent = '';
-    if (template !== 'developer') {
+    if (template === 'traditional-format') {
+      bodyContent = `
+        <div class="pdf-resume animate-fadeIn">
+          <div class="resume-header-title">RESUME</div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+            <div style="flex: 1; min-width: 0; padding-right: 15px;">
+              <div class="personal-name">${personal.name || 'Your Name'}</div>
+              <div class="personal-title">${personal.title || 'Target Role'}</div>
+              
+              <div class="contact-split">
+                <div class="contact-left">
+                  ${personal.location ? `<strong>Address:</strong><br/>${personal.location.replace(/\n/g, '<br/>')}` : ''}
+                </div>
+                <div class="contact-right">
+                  ${personal.phone ? `<strong>Mob No.:</strong> ${personal.phone}<br/>` : ''}
+                  ${personal.email ? `<strong>Email Id:</strong> ${personal.email}` : ''}
+                </div>
+              </div>
+            </div>
+            ${profileImage ? `
+              <div style="width: 1.05in; height: 1.3in; border: 1.5px solid #000; padding: 1.5px; text-align: center; background-color: #fff; flex-shrink: 0; margin-left: 15px; margin-top: 5px;">
+                <img src="${profileImage}" style="width: 100%; height: 100%; object-fit: cover;" />
+              </div>
+            ` : ''}
+          </div>
+          <hr class="primary-hr" />
+
+          ${objective ? `
+            <div class="section-banner">Career Objective</div>
+            <div class="section-text" style="white-space: pre-wrap;">${objective}</div>
+          ` : ''}
+
+          <div class="section-banner">Academic Qualification</div>
+          <table class="academic-table">
+            <thead>
+              <tr>
+                <th style="text-align: center; width: 8%;">S.No.</th>
+                <th style="width: 32%;">Qualification</th>
+                <th style="width: 35%;">University / Board</th>
+                <th style="text-align: center; width: 12%;">Year</th>
+                <th style="text-align: center; width: 13%;">Per %</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${education.map((edu, idx) => `
+                <tr>
+                  <td style="text-align: center;">${idx + 1}</td>
+                  <td>${edu.degree}</td>
+                  <td>${edu.school}</td>
+                  <td style="text-align: center;">${edu.year}</td>
+                  <td style="text-align: center;">${edu.gpa}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          ${skills.technical || skills.soft ? `
+            <div class="section-banner">Other Qualification</div>
+            <ul class="bullet-list">
+              ${skills.technical ? `<li>${skills.technical}</li>` : ''}
+              ${skills.soft ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : ''}
+            </ul>
+          ` : ''}
+
+          ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? `
+            <div class="section-banner">Work Experience</div>
+            <ul class="bullet-list">
+              ${experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
+                <li><strong>${exp.role}</strong> at <strong>${exp.company}</strong> (${exp.duration})${exp.details ? `<br/><em>${exp.details}</em>` : ''}</li>
+              `).join('')}
+            </ul>
+          ` : ''}
+
+          ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? `
+            <div class="section-banner">Key Projects &amp; Products</div>
+            <ul class="bullet-list">
+              ${projects.filter(proj => proj.title.trim()).map(proj => `
+                <li><strong>${proj.title}</strong> ${proj.tech ? `[${proj.tech}]` : ''} ${proj.details ? `<br/><em>${proj.details}</em>` : ''}</li>
+              `).join('')}
+            </ul>
+          ` : ''}
+
+          ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? `
+            <div class="section-banner">Certifications &amp; Achievements</div>
+            <ul class="bullet-list">
+              ${certs.filter(c => c.name.trim()).map(c => `
+                <li><strong>${c.name}</strong>${c.issuer ? ` - Issued by <em>${c.issuer}</em>` : ''}${c.year ? ` (${c.year})` : ''}</li>
+              `).join('')}
+            </ul>
+          ` : ''}
+
+          <div class="section-banner">Personal Information</div>
+          <table class="info-table">
+            <tbody>
+              <tr>
+                <td class="info-label">Father's Name</td>
+                <td class="info-colon">:</td>
+                <td class="info-val">${personal.fatherName || 'Not Specified'}</td>
+              </tr>
+              <tr>
+                <td class="info-label">Date of Birth</td>
+                <td class="info-colon">:</td>
+                <td class="info-val">${personal.dob || 'Not Specified'}</td>
+              </tr>
+              <tr>
+                <td class="info-label">Language Known</td>
+                <td class="info-colon">:</td>
+                <td class="info-val">${personal.languages || 'Not Specified'}</td>
+              </tr>
+              <tr>
+                <td class="info-label">Gender</td>
+                <td class="info-colon">:</td>
+                <td class="info-val">${personal.gender || 'Not Specified'}</td>
+              </tr>
+              <tr>
+                <td class="info-label">Nationality</td>
+                <td class="info-colon">:</td>
+                <td class="info-val">${personal.nationality || 'Not Specified'}</td>
+              </tr>
+              <tr>
+                <td class="info-label">Marital Status</td>
+                <td class="info-colon">:</td>
+                <td class="info-val">${personal.maritalStatus || 'Not Specified'}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          ${personal.declaration ? `
+            <div class="section-banner">Declaration</div>
+            <div class="section-text" style="white-space: pre-wrap;">${personal.declaration}</div>
+          ` : ''}
+
+          <div class="footer-signature">
+            <div>Date :</div>
+            <div style="margin-right: 30px;">(${personal.name})</div>
+          </div>
+        </div>
+      `;
+    } else if (template !== 'developer') {
       bodyContent = `
         <div class="pdf-resume">
           <h1>${personal.name}</h1>
           <div class="subtitle">${personal.title}</div>
-          <div class="contact-bar" style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; font-size: 9pt; color: #555; margin-bottom: 12pt; border-bottom: 1px solid #ddd; padding-bottom: 8px;">
-            <span>${personal.email}</span> | <span>${personal.phone}</span> | <span>${personal.location}</span>
-            ${personal.linkedin ? ` | <span>LinkedIn: ${personal.linkedin}</span>` : ''}
-            ${personal.github ? ` | <span>GitHub: ${personal.github}</span>` : ''}
-            ${personal.twitter ? ` | <span>X: ${personal.twitter}</span>` : ''}
-            ${personal.portfolio ? ` | <span>Web: ${personal.portfolio}</span>` : ''}
+          <div class="contact-bar">
+            <span>${personal.email}</span> &nbsp;|&nbsp; <span>${personal.phone}</span> &nbsp;|&nbsp; <span>${personal.location}</span>
+            ${personal.linkedin ? ` &nbsp;|&nbsp; <span>LinkedIn: ${personal.linkedin}</span>` : ''}
+            ${personal.github ? ` &nbsp;|&nbsp; <span>GitHub: ${personal.github}</span>` : ''}
+            ${personal.twitter ? ` &nbsp;|&nbsp; <span>X: ${personal.twitter}</span>` : ''}
+            ${personal.portfolio ? ` &nbsp;|&nbsp; <span>Web: ${personal.portfolio}</span>` : ''}
           </div>
 
           ${objective ? `
             <div class="section-title">Career Objective</div>
-            <p style="margin-top: 4px; text-align: justify; font-size: 10pt; white-space: pre-wrap;">${objective}</p>
+            <p style="white-space: pre-wrap;">${objective}</p>
           ` : ''}
 
           <div class="section-title">Core Professional Skills</div>
-          <div class="item" style="margin-top: 4px;">
-            <strong>Technical Skills:</strong> ${skills.technical}<br/>
-            <strong>Professional Competencies:</strong> ${skills.soft}
+          <div class="item">
+            <p><strong>Technical Skills:</strong> ${skills.technical}</p>
+            <p><strong>Professional Competencies:</strong> ${skills.soft}</p>
           </div>
 
           <div class="section-title">Work Experience</div>
           ${experience.map(exp => `
-            <div class="item" style="margin-top: 6px;">
-              <div class="item-header" style="display: flex; justify-content: space-between; font-weight: bold;">
+            <div class="item">
+              <div class="item-header">
                 <span>${exp.role}</span>
                 <span>${exp.duration}</span>
               </div>
-              <div class="item-sub" style="font-style: italic; color: #555;">
+              <div class="item-sub">
                 <span>${exp.company}</span>
               </div>
-              <p style="margin:4pt 0 0 0; text-align:justify; white-space: pre-wrap;">${exp.details}</p>
+              <p style="white-space: pre-wrap;">${exp.details}</p>
             </div>
           `).join('')}
 
           <div class="section-title">Academic History</div>
           ${education.map(edu => `
-            <div class="item" style="margin-top: 6px;">
-              <div class="item-header" style="display: flex; justify-content: space-between; font-weight: bold;">
+            <div class="item">
+              <div class="item-header">
                 <span>${edu.degree}</span>
                 <span>${edu.year}</span>
               </div>
-              <div class="item-sub" style="font-style: italic; color: #555; display: flex; justify-content: space-between;">
+              <div class="item-sub">
                 <span>${edu.school}</span>
-                <span>${edu.gpa}</span>
+                ${edu.gpa ? `<span>GPA: ${edu.gpa}</span>` : ''}
               </div>
             </div>
           `).join('')}
 
           <div class="section-title">Key Projects &amp; Products</div>
           ${projects.map(proj => `
-            <div class="item" style="margin-top: 6px;">
-              <div class="item-header" style="display: flex; justify-content: space-between; font-weight: bold;">
+            <div class="item">
+              <div class="item-header">
                 <span>${proj.title}</span>
-                <span style="font-size:8.5pt; font-weight:normal; color:#555;">[${proj.tech}]</span>
+                ${proj.tech ? `<span style="font-weight:normal; font-size:8.5pt;">(${proj.tech})</span>` : ''}
               </div>
-              <p style="margin:4pt 0 0 0; text-align:justify; white-space: pre-wrap;">${proj.details}</p>
+              <p style="white-space: pre-wrap;">${proj.details}</p>
             </div>
           `).join('')}
 
           ${certs.length > 0 ? `
             <div class="section-title">Certifications &amp; Achievements</div>
-            <div style="margin-top: 6px;">
+            <div>
               ${certs.map(c => `
-                <div style="margin-bottom:4pt;">
-                  <strong>${c.name}</strong> - Issued by <em>${c.issuer}</em> (${c.year})
+                <div style="margin-bottom:4pt; font-size:9.5pt;">
+                  <strong>${c.name}</strong>${c.issuer ? ` - Issued by <em>${c.issuer}</em>` : ''}${c.year ? ` (${c.year})` : ''}
                 </div>
               `).join('')}
             </div>
@@ -644,18 +981,26 @@ export default function AiResumeBuilder() {
       `;
     }
 
+    // Create an offscreen wrapper to hide the element from viewer without shifting layout or causing scroll conflicts in sandboxed iframe runtime
+    const wrapper = document.createElement('div');
+    wrapper.id = 'pdf-render-wrapper';
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '-9999px';
+    wrapper.style.top = `${window.scrollY}px`;
+    wrapper.style.width = '816px';
+    wrapper.style.height = 'auto';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.zIndex = '999999';
+
+    // Create the clean content container at its standard layout coordinates within the wrapper
     const container = document.createElement('div');
     container.id = 'pdf-render-container';
-    container.style.position = 'fixed';
-    container.style.left = '0';
-    container.style.top = '0';
+    container.style.position = 'relative';
     container.style.width = '816px';
     container.style.background = '#ffffff';
     container.style.color = '#000000';
-    container.style.opacity = '1';
-    container.style.pointerEvents = 'none';
-    container.style.zIndex = '999999'; // Positioned at 999999 so it is fully painted by the browser engine, but hidden behind the loader overlay (1000000)
-    container.style.overflow = 'visible';
+    container.style.margin = '0';
+    container.style.padding = '0';
 
     const contentDiv = document.createElement('div');
     contentDiv.innerHTML = `
@@ -665,7 +1010,8 @@ export default function AiResumeBuilder() {
       ${bodyContent}
     `;
     container.appendChild(contentDiv);
-    document.body.appendChild(container);
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
 
     const opt = {
       margin:       0,
@@ -686,27 +1032,47 @@ export default function AiResumeBuilder() {
 
     showNotification("Compiling secure PDF layout... please wait.", "info");
 
-    setTimeout(() => {
-      html2pdf().from(container).set(opt).save().then(() => {
-        try {
-          document.body.removeChild(container);
-        } catch (e) {}
-        setIsGenerating(false);
-        // Restore normal scroll positions
-        window.scrollTo(originalScrollX, originalScrollY);
-        showNotification("ATS Resume PDF downloaded successfully!", "success");
-      }).catch((err: any) => {
-        console.error("PDF generation error: ", err);
-        try {
-          document.body.removeChild(container);
-        } catch (e) {}
-        setIsGenerating(false);
-        // Restore normal scroll positions
-        window.scrollTo(originalScrollX, originalScrollY);
-        showNotification("Failed to generate PDF automatically. Triggering print backup instead.", "error");
-        triggerPrintPdf();
+    const images = container.getElementsByTagName('img');
+    const loadPromises = Array.from(images).map((img) => {
+      return new Promise<void>((resolve) => {
+        if (img.complete) {
+          if (typeof img.decode === 'function') {
+            img.decode().then(() => resolve()).catch(() => resolve());
+          } else {
+            resolve();
+          }
+        } else {
+          img.onload = () => {
+            if (typeof img.decode === 'function') {
+              img.decode().then(() => resolve()).catch(() => resolve());
+            } else {
+              resolve();
+            }
+          };
+          img.onerror = () => resolve();
+        }
       });
-    }, 600);
+    });
+
+    Promise.all(loadPromises).then(() => {
+      setTimeout(() => {
+        html2pdf().from(container).set(opt).save().then(() => {
+          try {
+            document.body.removeChild(wrapper);
+          } catch (e) {}
+          setIsGenerating(false);
+          showNotification("ATS Resume PDF downloaded successfully!", "success");
+        }).catch((err: any) => {
+          console.error("PDF generation error: ", err);
+          try {
+            document.body.removeChild(wrapper);
+          } catch (e) {}
+          setIsGenerating(false);
+          showNotification("Failed to generate PDF automatically. Triggering print backup instead.", "error");
+          triggerPrintPdf();
+        });
+      }, 800);
+    });
   };
 
   return (
@@ -790,6 +1156,59 @@ export default function AiResumeBuilder() {
             {step === 1 && (
               <div className="space-y-4 animate-fadeIn">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Personal Identity Details</h4>
+                
+                {/* Profile Photo Upload Section */}
+                <div className="flex flex-col sm:flex-row items-center gap-4 bg-white/60 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 p-4 rounded-2xl mb-2">
+                  <div className="relative w-16 h-20 rounded-xl border-2 border-dashed border-indigo-300 dark:border-slate-700 bg-indigo-50/10 dark:bg-slate-950 overflow-hidden flex flex-col items-center justify-center shrink-0 shadow-inner group">
+                    {profileImage ? (
+                      <img src={profileImage} alt="Profile" className="w-full h-full object-cover animate-fadeIn" />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-indigo-500/80 dark:text-slate-500 p-1">
+                        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                          <circle cx="12" cy="11" r="4" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15a7 7 0 00-6.9 5.3A1.1 1.1 0 006.1 22h11.8a1.1 1.1 0 001-1.7A7 7 0 0012 15z" />
+                        </svg>
+                        <span className="text-[7.5px] font-bold mt-1 tracking-wider uppercase">Photo</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 w-full text-center sm:text-left space-y-1">
+                    <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200">Profile Photo / Passport Photo</span>
+                    <span className="block text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
+                      Upload a headshot image (JPG/PNG). This photo will render neatly on your Traditional Format resume.
+                    </span>
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 pt-1">
+                      <label className="py-1 px-3 bg-indigo-50 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-slate-700 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold rounded-lg cursor-pointer transition-all duration-150 shadow-sm border border-indigo-100/30">
+                        <span>Choose Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setProfileImage(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {profileImage && (
+                        <button
+                          type="button"
+                          onClick={() => setProfileImage(null)}
+                          className="py-1 px-3 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 text-[10px] font-bold rounded-lg transition-all duration-150 cursor-pointer"
+                        >
+                          Remove Photo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Full Name</label>
@@ -883,6 +1302,90 @@ export default function AiResumeBuilder() {
                       onChange={(e) => setPersonal({ ...personal, twitter: e.target.value })}
                       className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
                       placeholder="x.com/..."
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200/60 pt-4 mt-4 space-y-3">
+                  <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Traditional Biodata &amp; Personal Info</h5>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700">Father's Name</label>
+                      <input
+                        type="text"
+                        value={personal.fatherName || ''}
+                        onChange={(e) => setPersonal({ ...personal, fatherName: e.target.value })}
+                        placeholder="e.g. Shri Lalchand Kumar"
+                        className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700">Date of Birth</label>
+                      <input
+                        type="text"
+                        value={personal.dob || ''}
+                        onChange={(e) => setPersonal({ ...personal, dob: e.target.value })}
+                        placeholder="e.g. 15th August 1998"
+                        className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700">Languages Known</label>
+                      <input
+                        type="text"
+                        value={personal.languages || ''}
+                        onChange={(e) => setPersonal({ ...personal, languages: e.target.value })}
+                        placeholder="e.g. Hindi, English"
+                        className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700">Gender</label>
+                      <input
+                        type="text"
+                        value={personal.gender || ''}
+                        onChange={(e) => setPersonal({ ...personal, gender: e.target.value })}
+                        placeholder="e.g. Male / Female"
+                        className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700">Nationality</label>
+                      <input
+                        type="text"
+                        value={personal.nationality || ''}
+                        onChange={(e) => setPersonal({ ...personal, nationality: e.target.value })}
+                        placeholder="e.g. Indian"
+                        className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700">Marital Status</label>
+                      <input
+                        type="text"
+                        value={personal.maritalStatus || ''}
+                        onChange={(e) => setPersonal({ ...personal, maritalStatus: e.target.value })}
+                        placeholder="e.g. Unmarried / Married"
+                        className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Declaration Statement</label>
+                    <textarea
+                      value={personal.declaration || ''}
+                      onChange={(e) => setPersonal({ ...personal, declaration: e.target.value })}
+                      rows={2}
+                      placeholder="Declaration of credibility..."
+                      className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none resize-none"
                     />
                   </div>
                 </div>
@@ -1292,6 +1795,7 @@ export default function AiResumeBuilder() {
         {/* Template choices tabs */}
         <div className="grid grid-cols-2 gap-2 text-center text-xs">
           {[
+            { id: 'traditional-format', label: 'Traditional Format', desc: 'Classic blue header & table' },
             { id: 'ats-professional', label: 'ATS Professional', desc: 'Serif clean grid matrix' },
             { id: 'modern-indigo', label: 'Modern Indigo', desc: 'Aesthetic left-aligned flow' },
             { id: 'fresher-clean', label: 'Fresher Clean', desc: 'Minimal focus alignment' },

@@ -11,6 +11,7 @@ export default function WordToPdfConverter() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [forceSinglePage, setForceSinglePage] = useState<boolean>(true);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -64,6 +65,129 @@ export default function WordToPdfConverter() {
     });
   };
 
+  const renderHtmlToPdf = async (docHtml: string) => {
+    const styledHtml = `
+      <div style="font-family: 'Segoe UI', Calibri, Arial, sans-serif; padding: 0.45in; line-height: 1.35; color: #1e293b; background-color: #ffffff;">
+        <style>
+          p { margin-bottom: 6px; font-size: 10.5pt; text-align: justify; }
+          h1 { font-size: 18pt; font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #2563eb; padding-bottom: 4px; margin-bottom: 12px; margin-top: 0; }
+          h2 { font-size: 13pt; font-weight: bold; color: #1e40af; margin-top: 14px; margin-bottom: 6px; }
+          h3 { font-size: 11pt; font-weight: bold; color: #2563eb; margin-top: 10px; margin-bottom: 4px; }
+          ul, ol { margin-bottom: 8px; padding-left: 18px; }
+          li { font-size: 10.5pt; margin-bottom: 2px; }
+          table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; font-size: 9.5pt; }
+          th { background-color: #f0f7ff; color: #1e3a8a; font-weight: bold; border-bottom: 2px solid #93c5fd; }
+          blockquote { border-left: 4px solid #3b82f6; padding-left: 12px; font-style: italic; color: #475569; margin-bottom: 12px; }
+        </style>
+        ${docHtml || '<p>No readable text content found in Word document.</p>'}
+      </div>
+    `;
+
+    // Create an offscreen wrapper to hide the element from viewer without shifting layout or causing scroll conflicts in sandboxed iframe runtime
+    const wrapper = document.createElement('div');
+    wrapper.id = 'docx-pdf-render-wrapper';
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '-9999px';
+    wrapper.style.top = `${window.scrollY}px`;
+    wrapper.style.width = '816px';
+    wrapper.style.height = 'auto';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.zIndex = '999999';
+
+    // Create the clean content container at its standard layout coordinates within the wrapper
+    const container = document.createElement('div');
+    container.id = 'docx-pdf-render-container';
+    container.style.position = 'relative';
+    container.style.width = '816px'; 
+    container.style.background = '#ffffff';
+    container.style.color = '#000000';
+    container.style.margin = '0';
+    container.style.padding = '0';
+    container.innerHTML = styledHtml;
+
+    wrapper.appendChild(container);
+    document.body.appendChild(wrapper);
+
+    // Dynamic auto-scaling to fit on a single page if requested and slightly overflowing (11 inches * 96 DPI = 1056px height)
+    const targetMaxHeight = 1054;
+    let currentHeight = container.scrollHeight;
+
+    if (forceSinglePage && currentHeight > targetMaxHeight) {
+      const innerDiv = container.querySelector('div') as HTMLDivElement;
+      if (innerDiv) {
+        let fSize = 10.5;
+        let padding = 0.45;
+        let lHeight = 1.35;
+        
+        // Iteratively downsize to fit on exactly one page
+        for (let i = 0; i < 6 && container.scrollHeight > targetMaxHeight; i++) {
+          fSize -= 0.5;
+          padding -= 0.04;
+          lHeight -= 0.04;
+          if (fSize < 8.5) fSize = 8.5;
+          if (padding < 0.2) padding = 0.2;
+          if (lHeight < 1.1) lHeight = 1.1;
+
+          innerDiv.style.fontSize = `${fSize}pt`;
+          innerDiv.style.padding = `${padding}in`;
+          innerDiv.style.lineHeight = `${lHeight}`;
+
+          // Downscale inner typography elements consistently
+          innerDiv.querySelectorAll('h1').forEach((h: any) => h.style.fontSize = `${Math.max(14, 18 - i * 0.8)}pt`);
+          innerDiv.querySelectorAll('h2').forEach((h: any) => h.style.fontSize = `${Math.max(11, 13 - i * 0.4)}pt`);
+          innerDiv.querySelectorAll('p, li').forEach((p: any) => p.style.fontSize = `${fSize}pt`);
+          innerDiv.querySelectorAll('table, td, th').forEach((t: any) => {
+            t.style.fontSize = `${fSize - 1}pt`;
+            if (t.tagName === 'TD' || t.tagName === 'TH') {
+              t.style.padding = `${Math.max(2, 6 - i)}px ${Math.max(4, 10 - i * 1.2)}px`;
+            }
+          });
+        }
+      }
+    }
+
+    const opt = {
+      margin:       0,
+      filename:     `${file?.name ? file.name.replace(/\.[^/.]+$/, "") : "document"}.pdf`,
+      image:        { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas:  { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false, 
+        letterRendering: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 816
+      },
+      jsPDF:        { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+    };
+
+    // Generate PDF after a micro-timeout to ensure layout is fully computed, styled and painted by the DOM
+    setTimeout(() => {
+      html2pdf().from(container).set(opt).toPdf().get('pdf').then((pdfObj: any) => {
+        const pdfBlob = pdfObj.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        setDownloadUrl(pdfUrl);
+        setStep('ready');
+        setProgress(100);
+        
+        // Clean up
+        try {
+          document.body.removeChild(wrapper);
+        } catch (e) {}
+      }).catch((err: any) => {
+        console.error("html2pdf rendering failure:", err);
+        setError("PDF generation failed. Please try a different document layout.");
+        setStep('idle');
+        setProgress(0);
+        try {
+          document.body.removeChild(wrapper);
+        } catch (e) {}
+      });
+    }, 150);
+  };
+
   const executeConversion = async () => {
     if (!file) return;
 
@@ -71,11 +195,84 @@ export default function WordToPdfConverter() {
     setProgress(15);
     setError(null);
 
-    // If it's old legacy .doc format, show instruction
-    if (file.name.toLowerCase().endsWith('.doc')) {
-      setError("Legacy .doc files are pre-2007 binary formats. For perfect client-side translation of tables and nested graphics, please convert your file to standard Word .docx format and upload again.");
-      setStep('idle');
-      setProgress(0);
+    const isDoc = file.name.toLowerCase().endsWith('.doc');
+
+    if (isDoc) {
+      try {
+        const reader = new FileReader();
+        reader.onload = async function() {
+          try {
+            const arrayBuffer = this.result as ArrayBuffer;
+
+            // Check magic bytes to see if it is a .docx (zip) disguised as a .doc. (0x50 0x4B 0x03 0x04)
+            const headerBytes = new Uint8Array(arrayBuffer).subarray(0, 4);
+            const isActuallyDocx = headerBytes[0] === 0x50 && 
+                                   headerBytes[1] === 0x4B && 
+                                   headerBytes[2] === 0x03 && 
+                                   headerBytes[3] === 0x04;
+
+            if (isActuallyDocx) {
+              console.log("File has a .doc extension but uses standard OOXML (.docx) ZIP format under the hood. Redirecting to mammoth client-side parser.");
+              setProgress(30);
+              setStep('processing');
+              const mammothInstance = await loadMammoth();
+              const result = await mammothInstance.convertToHtml({ arrayBuffer: arrayBuffer });
+              const docHtml = result.value;
+
+              setProgress(70);
+              setStep('rendering');
+              await renderHtmlToPdf(docHtml);
+              return;
+            }
+
+            // Convert binary ArrayBuffer to Base64 in safe chunks to prevent stack overflow limits
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = '';
+            const len = bytes.byteLength;
+            const chunk = 8192;
+            for (let i = 0; i < len; i += chunk) {
+              binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+            }
+            const base64Data = btoa(binary);
+
+            setProgress(40);
+            setStep('processing');
+
+            const response = await fetch('/api/doc-to-html', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                base64Data,
+                fileName: file.name
+              })
+            });
+
+            if (!response.ok) {
+              const errData = await response.json();
+              throw new Error(errData.message || 'Server failed to parse the legacy .doc file.');
+            }
+
+            const { html } = await response.json();
+            setProgress(70);
+            setStep('rendering');
+
+            await renderHtmlToPdf(html);
+
+          } catch (err: any) {
+            console.error("Doc legacy parse failure: ", err);
+            setError(`Error: ${err.message || 'Failed to convert legacy Word document.'}`);
+            setStep('idle');
+            setProgress(0);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } catch (err: any) {
+        setError(`Failed to read file: ${err.message || err}`);
+        setStep('idle');
+        setProgress(0);
+      }
       return;
     }
 
@@ -98,85 +295,13 @@ export default function WordToPdfConverter() {
           setProgress(70);
           setStep('rendering');
 
-          // 4. Wrap HTML into styled document format suitable for html2pdf
-          const styledHtml = `
-            <div style="font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; padding: 0.8in; line-height: 1.6; color: #111827; background-color: #ffffff;">
-              <style>
-                p { margin-bottom: 12px; font-size: 11pt; text-align: justify; }
-                h1 { font-size: 22pt; font-weight: bold; color: #1e3a8a; border-bottom: 1.5px solid #1e3a8a; padding-bottom: 6px; margin-bottom: 16px; margin-top: 0; }
-                h2 { font-size: 15pt; font-weight: bold; color: #2e75b6; margin-top: 20px; margin-bottom: 10px; }
-                h3 { font-size: 12.5pt; font-weight: bold; color: #41719c; margin-top: 14px; margin-bottom: 8px; }
-                ul, ol { margin-bottom: 12px; padding-left: 20px; }
-                li { font-size: 11pt; margin-bottom: 4px; }
-                table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
-                th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 10pt; }
-                th { background-color: #f3f4f6; font-weight: bold; }
-                blockquote { border-left: 4px solid #3b82f6; padding-left: 12px; font-style: italic; color: #4b5563; margin-bottom: 12px; }
-              </style>
-              ${docHtml || '<p>No readable text content found in Word document.</p>'}
-            </div>
-          `;
-
-          // Write HTML into container element to generate PDF locally
-          const container = document.createElement('div');
-          container.id = 'docx-pdf-render-container';
-          container.style.position = 'fixed';
-          container.style.left = '0';
-          container.style.top = '0';
-          container.style.width = '816px'; 
-          container.style.background = '#ffffff';
-          container.style.color = '#000000';
-          container.style.opacity = '1';
-          container.style.pointerEvents = 'none';
-          container.style.zIndex = '-99999';
-          container.style.overflow = 'visible';
-          container.innerHTML = styledHtml;
-          document.body.appendChild(container);
-
-          const opt = {
-            margin:       0,
-            filename:     `${file.name.replace(/\.[^/.]+$/, "")}.pdf`,
-            image:        { type: 'jpeg' as const, quality: 0.98 },
-            html2canvas:  { 
-              scale: 2, 
-              useCORS: true, 
-              logging: false, 
-              letterRendering: true,
-              scrollX: 0,
-              scrollY: 0,
-              windowWidth: 816
-            },
-            jsPDF:        { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
-          };
-
-          // Generate PDF
-          html2pdf().from(container).set(opt).toPdf().get('pdf').then((pdfObj: any) => {
-            const pdfBlob = pdfObj.output('blob');
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            setDownloadUrl(pdfUrl);
-            setStep('ready');
-            setProgress(100);
-            
-            // Clean up
-            try {
-              document.body.removeChild(container);
-            } catch (e) {}
-          }).catch((err: any) => {
-            console.error("html2pdf rendering failure:", err);
-            setError("PDF generation failed. Please try a different document layout.");
-            setStep('idle');
-            setProgress(0);
-          });
+          await renderHtmlToPdf(docHtml);
 
         } catch (error: any) {
           console.error("Error processing Word content:", error);
-          setError("Failed to convert Word document contents. It might be corrupt or an older unsupported format (.doc). Try using a standard .docx file.");
+          setError("Failed to convert Word document contents. It might be corrupt or an older unsupported format (.doc). Try converting it or standard formats.");
           setStep('idle');
           setProgress(0);
-          try {
-            const el = document.getElementById('docx-pdf-render-container');
-            if (el) el.remove();
-          } catch (e) {}
         }
       };
 
@@ -273,6 +398,30 @@ export default function WordToPdfConverter() {
               </button>
             )}
           </div>
+
+          {/* Page Scaling Option Toggle */}
+          {step === 'idle' && (
+            <div className="flex items-center justify-between p-3.5 bg-indigo-500/5 dark:bg-slate-850/60 border border-indigo-500/10 dark:border-slate-800 rounded-xl">
+              <div className="flex flex-col gap-0.5 max-w-[80%]">
+                <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <LucideIcon name="Sliders" size={13} className="text-indigo-600 dark:text-cyan-400" />
+                  <span>Fit to Single Page (एक पेज में फिट करें)</span>
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Automatically scaling layout, font sizes and padding to fit neatly onto exactly 1 page.
+                </span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={forceSinglePage} 
+                  onChange={(e) => setForceSinglePage(e.target.checked)} 
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 dark:bg-slate-800 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-slate-600 peer-checked:bg-indigo-600 dark:peer-checked:bg-cyan-500"></div>
+              </label>
+            </div>
+          )}
 
           {/* Core trigger button */}
           {step === 'idle' && (
