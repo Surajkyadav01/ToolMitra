@@ -68,7 +68,7 @@ export default function Hero({ onExploreClick, onSearchQuery }: HeroProps) {
         </div>
 
         {/* Hot Quick Searches */}
-        <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-medium text-slate-400 dark:text-slate-500 mb-14">
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-semibold text-slate-400 dark:text-slate-500 mb-14">
           <span className="flex items-center gap-1 font-mono">
             <LucideIcon name="Search" size={12} />
             <span>Trending:</span>
@@ -119,7 +119,7 @@ export default function Hero({ onExploreClick, onSearchQuery }: HeroProps) {
             </div>
           </div>
         </div>
- 
+
       </div>
     </section>
   );

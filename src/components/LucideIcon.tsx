@@ -59,7 +59,9 @@ import {
   Crop,
   QrCode,
   Calendar,
-  Pipette
+  Pipette,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 const iconsMap: Record<string, any> = {
@@ -123,7 +125,9 @@ const iconsMap: Record<string, any> = {
   Crop,
   QrCode,
   Calendar,
-  Pipette
+  Pipette,
+  ChevronDown,
+  ChevronUp
 };
 
 interface LucideIconProps {

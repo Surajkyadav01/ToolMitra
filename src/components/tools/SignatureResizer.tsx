@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import LucideIcon from '../LucideIcon';
+import { RotateCw, RotateCcw } from 'lucide-react';
 
 // Helper utilities for precise file size target padding (compliance padding) using local Promises to prevent main-thread freezing
 function dataUrlToUint8Array(dataUrl: string): Promise<Uint8Array> {
@@ -107,53 +108,80 @@ function padImageBytesWithCompliantMetadata(bytes: Uint8Array, targetBytes: numb
 export default function SignatureResizer() {
   const [file, setFile] = useState<File | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [naturalWidth, setNaturalWidth] = useState<number>(0);
-  const [naturalHeight, setNaturalHeight] = useState<number>(0);
 
-  // Unit and customizable dimensions
-  const [unit, setUnit] = useState<'px' | 'cm'>('px');
-  const [widthPx, setWidthPx] = useState<string>('280');
-  const [heightPx, setHeightPx] = useState<string>('120');
-  const [widthCm, setWidthCm] = useState<string>('4.5');
-  const [heightCm, setHeightCm] = useState<string>('2.0');
-  const [dpi, setDpi] = useState<number>(200);
-  const [customDpi, setCustomDpi] = useState<string>('200');
-  const [maintainAspectRatio, setMaintainAspectRatio] = useState<boolean>(true);
+  // Simplified crop settings (margins left, right, top, bottom in percentage)
+  const [cropPercent, setCropPercent] = useState({ left: 10, right: 10, top: 15, bottom: 15 });
 
-  // Crop settings in percentage (margins left, right, top, bottom)
-  const [cropPercent, setCropPercent] = useState({ left: 5, right: 5, top: 5, bottom: 5 });
+  // Size constraints input - defaulted to 20 KB (Indian SSC, UPSC, and PAN portals typical limit)
+  const [compressToTarget, setCompressToTarget] = useState<boolean>(true);
+  const [targetSizeValue, setTargetSizeValue] = useState<string>('20');
+  const [targetSizeUnit, setTargetSizeUnit] = useState<'kb' | 'mb'>('kb');
 
-  // Contrast / Ink Processing
-  const [contrastFilter, setContrastFilter] = useState<'normal' | 'high-contrast-monochrome' | 'greyscale'>('high-contrast-monochrome');
-  const [threshold, setThreshold] = useState<number>(140);
-  
-  // Cropping framing adjustments (panning and zoom inside cropped view)
-  const [zoom, setZoom] = useState<number>(100);
-  const [offsetX, setOffsetX] = useState<number>(0);
-  const [offsetY, setOffsetY] = useState<number>(0);
+  // Simple scan enhancement & format
+  const [autoEnhance, setAutoEnhance] = useState<boolean>(true);
+  const [backgroundMode, setBackgroundMode] = useState<'white' | 'original'>('white');
+  const [outputFormat, setOutputFormat] = useState<'jpg' | 'jpeg' | 'png'>('jpg');
 
-  // Output encoding
-  const [outputFormat, setOutputFormat] = useState<'jpg' | 'png'>('jpg');
-  const [quality, setQuality] = useState<number>(0.65);
   const [actualByteSize, setActualByteSize] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [previewTab, setPreviewTab] = useState<'processed' | 'original'>('processed');
-
-  // New Custom Weight Requirements
-  const [compressToTarget, setCompressToTarget] = useState<boolean>(true);
-  const [targetSizeValue, setTargetSizeValue] = useState<string>('20'); // defaulted to 20 KB limit like government portals
-  const [targetSizeUnit, setTargetSizeUnit] = useState<'kb' | 'mb'>('kb');
-  const [actualQualityUsed, setActualQualityUsed] = useState<number>(0.65);
-
-  // Advanced transformations & adjustments
-  const [rotation, setRotation] = useState<number>(0);
-  const [tilt, setTilt] = useState<number>(0);
-  const [bgType, setBgType] = useState<'white' | 'transparent' | 'original'>('white');
-  const [autoFitAspect, setAutoFitAspect] = useState<boolean>(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard Copy & Paste listener for image clipboard items
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const pastedFile = items[i].getAsFile();
+          if (pastedFile) {
+            loadSignature(pastedFile);
+            e.preventDefault();
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, []);
+
+  const handleRotate = async (clockwise: boolean) => {
+    if (!imageSrc) return;
+    setIsProcessing(true);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error("Failed to load image for rotation"));
+        i.src = imageSrc;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.height;
+      canvas.height = img.width;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((clockwise ? 90 : -90) * Math.PI / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        
+        const rotatedUrl = canvas.toDataURL('image/png');
+        setImageSrc(rotatedUrl);
+        setCropPercent({ left: 10, right: 10, top: 15, bottom: 15 });
+      }
+    } catch (err) {
+      console.error("Failed to rotate image:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   // Auto trigger process on state changes
   useEffect(() => {
@@ -165,34 +193,8 @@ export default function SignatureResizer() {
       active = false;
     };
   }, [
-    imageSrc, unit, widthPx, heightPx, widthCm, heightCm, dpi, maintainAspectRatio,
-    cropPercent, contrastFilter, threshold, zoom, offsetX, offsetY, outputFormat, quality,
-    compressToTarget, targetSizeValue, targetSizeUnit, rotation, tilt, bgType, autoFitAspect
+    imageSrc, cropPercent, autoEnhance, backgroundMode, outputFormat, compressToTarget, targetSizeValue, targetSizeUnit
   ]);
-
-  // Dynamically synchronize the canvas height to match the crop selector aspect ratio if auto-fit aspect is checked
-  useEffect(() => {
-    if (autoFitAspect && imageSrc) {
-      const cropW = 100 - cropPercent.left - cropPercent.right;
-      const cropH = 100 - cropPercent.top - cropPercent.bottom;
-      if (cropW > 0 && cropH > 0) {
-        const ratio = cropH / cropW;
-        if (unit === 'px') {
-          const currentW = parseInt(widthPx, 10) || 280;
-          const targetH = Math.round(currentW * ratio);
-          if (targetH.toString() !== heightPx) {
-            setHeightPx(targetH.toString());
-          }
-        } else {
-          const currentW = parseFloat(widthCm) || 4.5;
-          const targetH = (currentW * ratio).toFixed(1);
-          if (targetH !== heightCm) {
-            setHeightCm(targetH);
-          }
-        }
-      }
-    }
-  }, [cropPercent, autoFitAspect, unit, widthPx, widthCm, imageSrc]);
 
   const handlePointerDown = (
     e: React.PointerEvent<HTMLDivElement>, 
@@ -210,7 +212,7 @@ export default function SignatureResizer() {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
 
-      // Translate dragging distance to percentage based on true visual container size
+      // Map dragging physical pixels to responsive container percentage 1:1
       const pctX = (dx / rect.width) * 100;
       const pctY = (dy / rect.height) * 100;
 
@@ -241,7 +243,7 @@ export default function SignatureResizer() {
       } else if (action === 'handle-t') {
         newTop = Math.max(0, Math.min(100 - startCrop.bottom - 10, startCrop.top + pctY));
       } else if (action === 'handle-b') {
-        newBottom = Math.max(0, Math.min(100 - startCrop.top - 10, startCrop.bottom + pctY));
+        newBottom = Math.max(0, Math.min(100 - startCrop.top - 10, startCrop.bottom - pctY));
       } else if (action === 'handle-l') {
         newLeft = Math.max(0, Math.min(100 - startCrop.right - 10, startCrop.left + pctX));
       } else if (action === 'handle-r') {
@@ -276,95 +278,19 @@ export default function SignatureResizer() {
     setFile(selectedFile);
     const url = URL.createObjectURL(selectedFile);
     setImageSrc(url);
-    setPreviewTab('processed');
-    setCropPercent({ left: 12, right: 12, top: 12, bottom: 12 }); // default slightly inset to make handles visually clear
-
-    // Fetch initial parameters to preset ratio
-    const tempImg = new Image();
-    tempImg.onload = () => {
-      setNaturalWidth(tempImg.width);
-      setNaturalHeight(tempImg.height);
-      setZoom(100);
-      setOffsetX(0);
-      setOffsetY(0);
-
-      if (maintainAspectRatio) {
-        const ratio = tempImg.height / tempImg.width;
-        if (unit === 'px') {
-          const computedHeight = Math.round(280 * ratio).toString();
-          setHeightPx(computedHeight);
-          setWidthPx('280');
-        } else {
-          const computedHeight = (4.5 * ratio).toFixed(1);
-          setHeightCm(computedHeight);
-          setWidthCm('4.5');
-        }
-      }
-    };
-    tempImg.onerror = () => {
-      console.error("Failed to load original signature dimension check.");
-    };
-    tempImg.src = url;
-  };
-
-  const handleWidthChange = (val: string) => {
-    if (unit === 'px') {
-      setWidthPx(val);
-      const w = parseInt(val, 10);
-      if (maintainAspectRatio && w > 0 && naturalWidth > 0 && naturalHeight > 0) {
-        const ratio = naturalHeight / naturalWidth;
-        setHeightPx(Math.round(w * ratio).toString());
-      }
-    } else {
-      setWidthCm(val);
-      const w = parseFloat(val);
-      if (maintainAspectRatio && w > 0 && naturalWidth > 0 && naturalHeight > 0) {
-        const ratio = naturalHeight / naturalWidth;
-        setHeightCm((w * ratio).toFixed(1));
-      }
-    }
-  };
-
-  const handleHeightChange = (val: string) => {
-    if (unit === 'px') {
-      setHeightPx(val);
-      const h = parseInt(val, 10);
-      if (maintainAspectRatio && h > 0 && naturalWidth > 0 && naturalHeight > 0) {
-        const ratio = naturalWidth / naturalHeight;
-        setWidthPx(Math.round(h * ratio).toString());
-      }
-    } else {
-      setHeightCm(val);
-      const h = parseFloat(val);
-      if (maintainAspectRatio && h > 0 && naturalWidth > 0 && naturalHeight > 0) {
-        const ratio = naturalWidth / naturalHeight;
-        setWidthCm((h * ratio).toFixed(1));
-      }
-    }
+    setCropPercent({ left: 10, right: 10, top: 15, bottom: 15 });
   };
 
   const applySignatureRules = async (active = true) => {
     if (!imageSrc) return;
 
-    // Check if input values are incomplete, skip to avoid white screens
-    if (unit === 'px') {
-      const w = parseInt(widthPx, 10);
-      const h = parseInt(heightPx, 10);
-      if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0) return;
-    } else {
-      const w = parseFloat(widthCm);
-      const h = parseFloat(heightCm);
-      if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0) return;
-    }
-
     setIsProcessing(true);
 
     try {
-      // Async image preloader with error safeguards
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
         const i = new Image();
         i.onload = () => resolve(i);
-        i.onerror = () => reject(new Error("Diagnostic image load failure"));
+        i.onerror = () => reject(new Error("Signature failed to load"));
         i.src = imageSrc;
       });
 
@@ -381,211 +307,113 @@ export default function SignatureResizer() {
       const cropH = 100 - cropPercent.top - cropPercent.bottom;
       const cropRatio = cropH / cropW;
 
-      // Determine dimensions based on selected unit
-      let finalW = 280;
-      let finalH = 120;
+      // Base width of 400 pixels is perfect for portal compatibility
+      let finalW = 400;
+      let finalH = Math.round(finalW * cropRatio);
 
-      if (unit === 'px') {
-        finalW = parseInt(widthPx, 10) || 280;
-        if (autoFitAspect && cropW > 0 && cropH > 0) {
-          finalH = Math.round(finalW * cropRatio);
-        } else {
-          finalH = parseInt(heightPx, 10) || 120;
-        }
-      } else {
-        const wCm = parseFloat(widthCm) || 4.5;
-        let hCm = parseFloat(heightCm) || 2.0;
-        if (autoFitAspect && cropW > 0 && cropH > 0) {
-          hCm = wCm * cropRatio;
-        }
-        const chosenDpi = dpi || 200;
-        finalW = Math.round((wCm / 2.54) * chosenDpi);
-        finalH = Math.round((hCm / 2.54) * chosenDpi);
-      }
-
-      // Safeguard sizes to prevent memory overflow
-      if (isNaN(finalW) || finalW <= 0) finalW = 10;
       if (isNaN(finalH) || finalH <= 0) finalH = 10;
-      if (finalW > 5000) finalW = 5000;
-      if (finalH > 5000) finalH = 5000;
-
       canvas.width = finalW;
       canvas.height = finalH;
 
-      // Clear or cover background
-      if (bgType === 'transparent' && outputFormat === 'png') {
-        ctx.clearRect(0, 0, finalW, finalH);
-      } else if (bgType === 'original') {
-        ctx.fillStyle = '#faf8f5';
-        ctx.fillRect(0, 0, finalW, finalH);
-      } else {
+      // Fill signature background as Pure White if selected, or if JPEG output is used (preventing black transparent background)
+      if (backgroundMode === 'white' || outputFormat === 'jpg' || outputFormat === 'jpeg') {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, finalW, finalH);
       }
 
-      // Configure high-fidelity image scaling smoothing to prevent blurriness
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, finalW, finalH);
-      ctx.clip();
-
-      // 1. Calculate Crop Bounds from original image
+      // 1. Calculate source image crop coordinates
       const sx = img.width * (cropPercent.left / 100);
       const sy = img.height * (cropPercent.top / 100);
       const sWidth = Math.max(1, img.width * (cropW / 100));
       const sHeight = Math.max(1, img.height * (cropH / 100));
 
-      // 2. Perform optimal containment fit to avoid whitespaces or cuts
-      const scale = (Number(zoom) || 100) / 100;
-      const canvasRatio = finalH / finalW;
-
-      let drawW = finalW;
-      let drawH = finalH;
-
-      if (!autoFitAspect) {
-        if (cropRatio > canvasRatio) {
-          // Cropped selection is taller than target canvas aspect ratio
-          drawH = finalH;
-          drawW = drawH / cropRatio;
-        } else {
-          // Cropped selection is wider than target canvas aspect ratio
-          drawW = finalW;
-          drawH = drawW * cropRatio;
-        }
-      }
-
-      // Apply scale zoom factor
-      drawW *= scale;
-      drawH *= scale;
-
-      // Apply pan offsets
-      const drawX = (finalW - drawW) / 2 + (Number(offsetX) || 0);
-      const drawY = (finalH - drawH) / 2 + (Number(offsetY) || 0);
-
-      // Center transformation, apply rotation + tilt, and draw
-      ctx.translate(drawX + drawW / 2, drawY + drawH / 2);
-      ctx.rotate(((rotation + tilt) * Math.PI) / 180);
+      // 2. Draw cropped image portion onto output canvas
       ctx.drawImage(
         img,
         sx, sy, sWidth, sHeight,
-        -drawW / 2, -drawH / 2, drawW, drawH
+        0, 0, finalW, finalH
       );
-      ctx.restore();
 
-      // 3. Pixel filtration & Transparency mask
-      const imgData = ctx.getImageData(0, 0, finalW, finalH);
-      const data = imgData.data;
+      // 3. Scan Clean processing (Shadow Eraser, Notebook line reduction and Ink extraction)
+      // Only run scanner filter if in white background mode to preserve original colors in original background mode
+      if (autoEnhance && backgroundMode === 'white') {
+        const imgData = ctx.getImageData(0, 0, finalW, finalH);
+        const data = imgData.data;
 
-      // Soft feather range for anti-aliasing inks (prevents jaggy edges / artifact blurriness)
-      const feather = 18;
-      const inkR = 12, inkG = 20, inkB = 55;
+        // Custom threshold controls
+        const threshold = 142;
+        const feather = 18;
+        const inkR = 12, inkG = 20, inkB = 55; // Professional Navy ink signature representation
 
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const alpha = data[i + 3];
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const alpha = data[i + 3];
 
-        if (alpha === 0) continue;
+          if (alpha === 0) continue;
 
-        // Standard visual luminance filter
-        const brightness = 0.34 * r + 0.5 * g + 0.16 * b;
+          const brightness = 0.34 * r + 0.5 * g + 0.16 * b;
 
-        if (contrastFilter === 'greyscale') {
-          if (bgType === 'transparent' && outputFormat === 'png' && brightness > threshold) {
-            data[i + 3] = 0; // Transparent
-          } else if (bgType === 'white' && brightness > threshold) {
+          if (brightness > threshold + feather) {
+            // Turn grayish paper textures into perfect clean white
             data[i] = 255;
             data[i + 1] = 255;
             data[i + 2] = 255;
-          } else {
-            data[i] = brightness;
-            data[i + 1] = brightness;
-            data[i + 2] = brightness;
-          }
-        } else if (contrastFilter === 'high-contrast-monochrome') {
-          if (brightness > threshold + feather) {
-            if (bgType === 'transparent' && outputFormat === 'png') {
-              data[i + 3] = 0; // Transparent
-            } else {
-              data[i] = 255;
-              data[i + 1] = 255;
-              data[i + 2] = 255;
-            }
           } else if (brightness < threshold - feather) {
+            // solid clean ink
             data[i] = inkR;
             data[i + 1] = inkG;
             data[i + 2] = inkB;
-            data[i + 3] = 255;
           } else {
-            // Anti-aliasing interpolation interpolation stroke edges!
+            // Anti-aliasing stroke borders smoothing
             const t = (brightness - (threshold - feather)) / (2 * feather);
-            if (bgType === 'transparent' && outputFormat === 'png') {
-              data[i] = inkR;
-              data[i + 1] = inkG;
-              data[i + 2] = inkB;
-              data[i + 3] = Math.max(0, Math.min(255, Math.round((1 - t) * 255)));
-            } else {
-              data[i] = Math.round(inkR + t * (255 - inkR));
-              data[i + 1] = Math.round(inkG + t * (255 - inkG));
-              data[i + 2] = Math.round(inkB + t * (255 - inkB));
-              data[i + 3] = 255;
-            }
-          }
-        } else {
-          // Keep original
-          if (bgType === 'transparent' && outputFormat === 'png' && brightness > threshold) {
-            data[i + 3] = 0; // Transparent
-          } else if (bgType === 'white' && brightness > threshold) {
-            data[i] = 255;
-            data[i + 1] = 255;
-            data[i + 2] = 255;
+            data[i] = Math.round(inkR + t * (255 - inkR));
+            data[i + 1] = Math.round(inkG + t * (255 - inkG));
+            data[i + 2] = Math.round(inkB + t * (255 - inkB));
           }
         }
+        ctx.putImageData(imgData, 0, 0);
       }
 
-      ctx.putImageData(imgData, 0, 0);
-
-      // 4. Output encoding with live target compression
-      const mimeType = outputFormat === 'jpg' ? 'image/jpeg' : 'image/png';
+      // 4. Output encoding with limit compression
+      const mimeType = (outputFormat === 'jpg' || outputFormat === 'jpeg') ? 'image/jpeg' : 'image/png';
       const targetValue = parseFloat(targetSizeValue) || 20;
       const targetLimitBytes = targetValue * (targetSizeUnit === 'kb' ? 1024 : 1024 * 1024);
 
       let finalDataUrl = '';
       let finalBytes = 0;
-      let finalQualityUsed = quality;
 
       if (compressToTarget) {
-        if (outputFormat === 'jpg') {
-          let bestQuality = 0.85;
+        if (outputFormat === 'jpg' || outputFormat === 'jpeg') {
+          let testQuality = 0.85;
           let ok = false;
           let lowQ = 0.02;
           let highQ = 0.95;
           let iter = 0;
 
-          // Search best quality first
+          // Search perfect matching quality
           while (iter < 8) {
-            const testQ = (lowQ + highQ) / 2;
-            const dataUrl = canvas.toDataURL('image/jpeg', testQ);
+            const tempQ = (lowQ + highQ) / 2;
+            const dataUrl = canvas.toDataURL('image/jpeg', tempQ);
             const bsize = Math.ceil((dataUrl.length - 'data:image/jpeg;base64,'.length) * 3 / 4);
             if (bsize <= targetLimitBytes) {
-              bestQuality = testQ;
+              testQuality = tempQ;
               finalDataUrl = dataUrl;
               finalBytes = bsize;
-              lowQ = testQ + 0.01;
+              lowQ = tempQ + 0.01;
               ok = true;
             } else {
-              highQ = testQ - 0.01;
+              highQ = tempQ - 0.01;
             }
             iter++;
           }
 
-          // If quality optimization is still above target limit (very high canvas size), scale down canvas resolution
+          // Scale resolution down if compression is still too big
           if (!ok || finalBytes > targetLimitBytes) {
-            bestQuality = 0.05;
             for (let scaleDec = 0.95; scaleDec >= 0.15; scaleDec -= 0.05) {
               const tempCanvas = document.createElement('canvas');
               tempCanvas.width = Math.max(10, Math.round(finalW * scaleDec));
@@ -603,12 +431,10 @@ export default function SignatureResizer() {
               }
             }
           }
-          finalQualityUsed = bestQuality;
         } else {
-          // PNG Mode: Optimize resolution size dynamically until under limit
+          // PNG limit compression
           let bestUrl = canvas.toDataURL('image/png');
           let bsize = Math.ceil((bestUrl.length - 'data:image/png;base64,'.length) * 3 / 4);
-          
           if (bsize > targetLimitBytes) {
             for (let s = 0.95; s >= 0.1; s -= 0.05) {
               const tempCanvas = document.createElement('canvas');
@@ -631,56 +457,42 @@ export default function SignatureResizer() {
           finalBytes = bsize;
         }
       } else {
-        // Standard manual slider mode
-        const qValue = outputFormat === 'jpg' ? quality : undefined;
-        finalDataUrl = canvas.toDataURL(mimeType, qValue);
-        const headerLength = mimeType === 'image/jpeg' ? 'data:image/jpeg;base64,'.length : 'data:image/png;base64,'.length;
+        // lossless output mode
+        finalDataUrl = canvas.toDataURL(mimeType, 0.85);
+        const isJpgOrJpeg = outputFormat === 'jpg' || outputFormat === 'jpeg';
+        const headerLength = isJpgOrJpeg ? 'data:image/jpeg;base64,'.length : 'data:image/png;base64,'.length;
         finalBytes = Math.ceil((finalDataUrl.length - headerLength) * 3 / 4);
-        finalQualityUsed = quality;
       }
 
-      // Convert to Uint8Array and pad if user wants a precise size and current limit is greater than actual file size
+      // Compliance byte-padding (ensures minimum requirement portals don't block files for being too light)
       if (compressToTarget && finalDataUrl && active) {
         try {
           const originalBytes = await dataUrlToUint8Array(finalDataUrl);
           if (originalBytes.length < targetLimitBytes) {
-            const paddedBytes = padImageBytesWithCompliantMetadata(originalBytes, targetLimitBytes, outputFormat);
+            const paddedBytes = padImageBytesWithCompliantMetadata(
+              originalBytes, 
+              targetLimitBytes, 
+              (outputFormat === 'jpg' || outputFormat === 'jpeg') ? 'jpg' : 'png'
+            );
             finalDataUrl = await uint8ArrayToDataUrl(paddedBytes, mimeType);
             finalBytes = paddedBytes.length;
           }
         } catch (e) {
-          console.error("Failed to pad image bytes to exact target size:", e);
+          console.error("Signature padding failed:", e);
         }
       }
 
       if (active) {
         setActualByteSize(finalBytes);
         setDownloadUrl(finalDataUrl);
-        setActualQualityUsed(finalQualityUsed);
         setIsProcessing(false);
       }
     } catch (err) {
-      console.error("Signature processing error:", err);
+      console.error("Signature output generation failure:", err);
       if (active) {
         setIsProcessing(false);
       }
     }
-  };
-
-  const selectPreset = (w: string, h: string, unitType: 'px' | 'cm', aspectLock: boolean) => {
-    setUnit(unitType);
-    setMaintainAspectRatio(aspectLock);
-    setAutoFitAspect(false);
-    if (unitType === 'px') {
-      setWidthPx(w);
-      setHeightPx(h);
-    } else {
-      setWidthCm(w);
-      setHeightCm(h);
-    }
-    setOffsetX(0);
-    setOffsetY(0);
-    setZoom(100);
   };
 
   const handleReset = () => {
@@ -689,41 +501,37 @@ export default function SignatureResizer() {
     setImageSrc(null);
     setDownloadUrl(null);
     setActualByteSize(0);
-    setRotation(0);
-    setTilt(0);
-    setBgType('white');
-    setAutoFitAspect(true);
+    setCropPercent({ left: 10, right: 10, top: 15, bottom: 15 });
   };
 
   const formatByteSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    if (bytes < 1024) return `${bytes} Bytes`;
+    return `${(bytes / 1024).toFixed(1)} KB`;
   };
 
   return (
-    <div id="signature-resizer-workspace" className="space-y-6">
+    <div id="simple-signature-resizer" className="space-y-6">
       
       {/* Title block */}
-      <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-805 pb-4">
+      <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
           <LucideIcon name="PenTool" size={24} />
         </div>
         <div>
           <h3 className="font-display font-extrabold text-xl text-slate-800 dark:text-slate-100">
-            Premium Portal Signature Resizer & Cropper
+            Aadhaar & PAN Signature Resizer
           </h3>
           <p className="text-xs text-slate-400">
-            Accurately clean notebook lines, crop unwanted margins using visual handles, and automatically compress signature bytes to fit portal regulations (e.g., 20 KB limits).
+            Easily upload your paper signature scan, crop unwanted borders, set your required KB size limit, and download perfect cropped signature files.
           </p>
         </div>
       </div>
 
       {!imageSrc ? (
         <div
-          id="sig-uploader"
+          id="sig-uploader-dropzone"
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-16 flex flex-col items-center justify-center gap-4 hover:border-emerald-500 hover:bg-slate-50/40 dark:hover:bg-slate-850/10 cursor-pointer transition-all dynamic-fadeIn"
+          className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 sm:p-14 flex flex-col items-center justify-center gap-5 hover:border-emerald-500 hover:bg-slate-50/40 dark:hover:bg-slate-900/30 cursor-pointer transition-all dynamic-fadeIn select-none shadow-sm"
         >
           <input
             ref={fileInputRef}
@@ -732,284 +540,71 @@ export default function SignatureResizer() {
             className="hidden"
             onChange={handleFileChange}
           />
-          <div className="w-20 h-20 rounded-full bg-emerald-50 dark:bg-slate-850/30 text-emerald-50 flex items-center justify-center shadow-inner animate-pulse">
-            <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
-              <LucideIcon name="PenTool" size={28} />
-            </div>
+          
+          {/* Cursive Signature illustration style vector placeholder */}
+          <div className="w-24 h-24 rounded-full bg-emerald-50/60 dark:bg-emerald-950/25 flex items-center justify-center text-emerald-500 shadow-inner">
+            <svg className="w-16 h-16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 3" className="opacity-45" />
+              {/* Cursive handwriting vector */}
+              <path d="M25 58 C32 42, 35 28, 43 38 C50 46, 42 70, 52 55 C60 42, 57 47, 65 52 C71 56, 68 65, 78 48" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-90" />
+              {/* Floating pen */}
+              <path d="M68 25 L 75 18 C 76 17, 78 17, 79 18 L 82 21 C 83 22, 83 24, 82 25 L 75 32 Z" fill="currentColor" className="opacity-80" />
+              <path d="M68 25 L 64 36 L 75 32 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" className="opacity-80" />
+            </svg>
           </div>
+
           <div className="text-center space-y-1.5">
             <p className="font-bold text-slate-800 dark:text-slate-100 text-base">
-              Upload handwritten signature image, or <span className="text-emerald-500 font-extrabold">browse file</span>
+              Click to select signature, <span className="text-emerald-500 font-extrabold uppercase">paste (Ctrl+V)</span>, or browse
             </p>
-            <p className="text-xs text-slate-400 leading-normal max-w-sm mx-auto">
-              Snap a clean photo of your signature from paper, crop it, configure portal limits, and clean it instantly.
+            <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+              Supports JPG, JPEG, and PNG signature images from paper scans, laptops, or mobile phones
             </p>
           </div>
         </div>
       ) : (
-        <div id="sig-workspace" className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fadeIn">
+        <div id="simple-workspace-cols" className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
           
-          {/* Bento Box 1: Sizing Constraints (Column Left) */}
-          <div className="lg:col-span-4 space-y-5 bg-white dark:bg-slate-905 p-5 rounded-2xl border border-slate-100/80 dark:border-slate-800/80 shadow-sm flex flex-col">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2 mb-1">
-              <span className="p-1 px-1.5 rounded-lg bg-indigo-50 dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 font-black text-xs font-mono">1</span>
-              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-350 uppercase tracking-widest">
-                Resolution & Presets
-              </h4>
-            </div>
-
-            {/* Presets and custom selections */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
-                Standard Government Portals
-              </span>
-              <div className="grid grid-cols-1 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => selectPreset('280', '120', 'px', true)}
-                  className="py-1.5 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-bold text-left text-slate-600 dark:text-slate-350 hover:bg-slate-100/80 dark:hover:bg-slate-800 flex flex-col gap-0.5 cursor-pointer transition-all duration-150"
-                >
-                  <span className="text-indigo-600 dark:text-cyan-400 font-extrabold text-[11px]">Standard India Portal (SSC, UPSC)</span>
-                  <span className="text-slate-400 font-mono">280 × 120 pixels</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectPreset('140', '60', 'px', true)}
-                  className="py-1.5 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-bold text-left text-slate-600 dark:text-slate-350 hover:bg-slate-100/80 dark:hover:bg-slate-800 flex flex-col gap-0.5 cursor-pointer transition-all duration-150"
-                >
-                  <span className="text-indigo-600 dark:text-cyan-400 font-extrabold text-[11px]">SBI Bank Portal (Official)</span>
-                  <span className="text-slate-400 font-mono">140 × 60 pixels</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectPreset('250', '120', 'px', true)}
-                  className="py-1.5 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-bold text-left text-slate-600 dark:text-slate-350 hover:bg-slate-100/80 dark:hover:bg-slate-800 flex flex-col gap-0.5 cursor-pointer transition-all duration-150"
-                >
-                  <span className="text-emerald-600 font-extrabold text-[11px]">IBPS Clerk / PO Examination</span>
-                  <span className="text-slate-400 font-mono">250 × 120 pixels</span>
-                </button>
+          {/* LEFT SIDE: Visual Boundary Cropper Box */}
+          <div className="space-y-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-sm flex flex-col justify-start">
+            <div className="flex items-center justify-between border-b border-slate-150 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">1</span>
+                <span className="font-bold text-xs text-slate-700 dark:text-slate-350 uppercase tracking-wider">
+                  Crop Your Signature
+                </span>
               </div>
+              <span className="text-[10px] text-slate-400 font-medium">Use corners to resize frame</span>
             </div>
 
-            {/* Scale unit configuration tab */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500">Scale Dimensions Metric</label>
-              <div className="flex p-0.5 bg-slate-100 dark:bg-slate-955 rounded-xl border border-slate-200/50 dark:border-slate-850 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setUnit('px')}
-                  className={`flex-1 py-1.5 font-bold rounded-lg transition-all cursor-pointer text-center ${
-                    unit === 'px'
-                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Pixels (px)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUnit('cm')}
-                  className={`flex-1 py-1.5 font-bold rounded-lg transition-all cursor-pointer text-center ${
-                    unit === 'cm'
-                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Physical Centimeters
-                </button>
-              </div>
-            </div>
-
-            {/* Checkbox ratio lock */}
-            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850">
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Lock Aspect Ratio</span>
-                <p className="text-[9px] text-slate-400">Lock width & height scaling proportions</p>
-              </div>
-              <input
-                id="sig-aspect-ratio-toggle"
-                type="checkbox"
-                checked={maintainAspectRatio}
-                onChange={(e) => setMaintainAspectRatio(e.target.checked)}
-                className="w-4.5 h-4.5 accent-indigo-600 dark:accent-cyan-400 rounded cursor-pointer"
-              />
-            </div>
-
-            {/* Checkbox auto-fit crop box */}
-            <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850">
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Auto-Fit to Crop Box</span>
-                <p className="text-[9px] text-slate-400">Trim all outer whitespaces to match crop proportions</p>
-              </div>
-              <input
-                id="sig-auto-fit-aspect-toggle"
-                type="checkbox"
-                checked={autoFitAspect}
-                onChange={(e) => setAutoFitAspect(e.target.checked)}
-                className="w-4.5 h-4.5 accent-emerald-500 rounded cursor-pointer"
-              />
-            </div>
-
-            {/* Width and Height numbers */}
-            <div className="grid grid-cols-2 gap-3 pb-1">
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-650 dark:text-slate-300">
-                  {unit === 'px' ? 'Width (px)' : 'Width (CM)'}
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step={unit === 'px' ? '1' : '0.1'}
-                    min="0.1"
-                    value={unit === 'px' ? widthPx : widthCm}
-                    onChange={(e) => handleWidthChange(e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 font-mono font-bold outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-650 dark:text-slate-300">
-                  {unit === 'px' ? 'Height (px)' : 'Height (CM)'}
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step={unit === 'px' ? '1' : '0.1'}
-                    min="0.1"
-                    value={unit === 'px' ? heightPx : heightCm}
-                    onChange={(e) => handleHeightChange(e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 font-mono font-bold outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* DPI parameters (Visible when Unit is CM) */}
-            {unit === 'cm' && (
-              <div className="space-y-2 animate-fadeIn p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850">
-                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  <span>DPI Resolution</span>
-                  <span className="font-mono text-[9px] text-indigo-500">Current: {dpi} DPI</span>
-                </div>
-                <div className="grid grid-cols-4 gap-1">
-                  {[100, 150, 200, 300].map((stepDpi) => (
-                    <button
-                      key={stepDpi}
-                      type="button"
-                      onClick={() => {
-                        setDpi(stepDpi);
-                        setCustomDpi(stepDpi.toString());
-                      }}
-                      className={`py-1 text-[9px] font-bold rounded-md border transition-all cursor-pointer ${
-                        dpi === stepDpi
-                          ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700 dark:bg-slate-850 dark:text-cyan-400'
-                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 text-slate-500 hover:bg-slate-100'
-                      }`}
-                    >
-                      {stepDpi}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="number"
-                  value={customDpi}
-                  onChange={(e) => {
-                    setCustomDpi(e.target.value);
-                    const d = parseInt(e.target.value, 10);
-                    if (d > 0) setDpi(d);
-                  }}
-                  placeholder="Custom DPI e.g. 200"
-                  className="w-full text-xs px-3 py-1.5 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg font-mono outline-none text-slate-750 dark:text-slate-300"
-                />
-              </div>
-            )}
-
-            {/* Background enhancement controls */}
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-[#f1f5f9] dark:border-slate-850 space-y-3 shadow-inner">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-                Eraser Backdrop & Hue Adjust
-              </label>
-              
-              <select
-                value={contrastFilter}
-                onChange={(e) => setContrastFilter(e.target.value as any)}
-                className="w-full text-xs px-2.5 py-2.0 bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-850 rounded-lg outline-none cursor-pointer"
-              >
-                <option value="high-contrast-monochrome">Perfect White (Clear Laptop Shadows)</option>
-                <option value="greyscale">Clean Greyscale</option>
-                <option value="normal">Keep Original Hue / Color</option>
-              </select>
-
-              {/* Slider threshold if monochrome active */}
-              {contrastFilter === 'high-contrast-monochrome' && (
-                <div className="space-y-1 pt-1.5 border-t border-slate-200 dark:border-slate-900">
-                  <div className="flex justify-between text-[10px] text-slate-600 dark:text-slate-300 font-bold font-mono">
-                    <span>Shadow Eraser Sensitivity:</span>
-                    <span className="text-indigo-600 dark:text-cyan-400 font-black">{threshold}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="60"
-                    max="220"
-                    step="2"
-                    value={threshold}
-                    onChange={(e) => setThreshold(parseInt(e.target.value))}
-                    className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-cyan-400"
-                  />
-                  <p className="text-[9px] text-slate-400 leading-normal">
-                    Turn up slider to scrub away paper texture wrinkles. Turn down to retain thin pen strokes.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={handleReset}
-              className="w-full mt-auto py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:text-slate-350 dark:hover:bg-slate-800 font-bold text-xs rounded-xl transition-all cursor-pointer border border-slate-200 dark:border-slate-800 text-slate-700 flex items-center justify-center gap-1.5"
-            >
-              <LucideIcon name="UploadCloud" size={13} />
-              <span>Choose Another Photo</span>
-            </button>
-          </div>
-
-          {/* Bento Box 2: Visual Boundary Cropper Board (Column Center) */}
-          <div className="lg:col-span-4 space-y-5 bg-white dark:bg-slate-905 p-5 rounded-2xl border border-slate-100/80 dark:border-slate-800/80 shadow-sm flex flex-col">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2 mb-1">
-              <span className="p-1 px-1.5 rounded-lg bg-emerald-50 dark:bg-slate-800 text-emerald-600 dark:text-cyan-400 font-black text-xs font-mono">2</span>
-              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-350 uppercase tracking-widest">
-                Visual Border Cropper
-              </h4>
-            </div>
-
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block leading-none">
-              Drag corners to fit handwriting
-            </span>
-
-            {/* Draggable Bounding Crop Box Card */}
-            <div className="relative max-w-full overflow-hidden border border-slate-200/80 dark:border-slate-800 rounded-xl bg-slate-100 dark:bg-slate-950 select-none touch-none aspect-square flex items-center justify-center p-3 animate-fadeIn">
+            {/* Draggable Bounding Crop wrapper stage */}
+            <div className="relative max-w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-[#f8fafc] dark:bg-slate-950 p-3 flex items-center justify-center">
               <div 
                 ref={containerRef}
-                className="relative inline-block max-w-full select-none touch-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg shadow-sm"
+                className="relative select-none touch-none bg-white rounded-lg shadow-sm overflow-hidden"
+                style={{ width: 'fit-content', maxWidth: '100%' }}
               >
                 <img 
                   src={imageSrc} 
-                  alt="Source canvas crop coordinates" 
-                  className="max-h-[200px] max-w-full object-contain pointer-events-none select-none"
-                  style={{ transform: `rotate(${rotation + tilt}deg)` }}
+                  alt="handwritten signature edit board" 
+                  className="max-h-[350px] w-auto max-w-full block pointer-events-none select-none rounded"
                 />
                 
-                {/* Dark bounding translucent overlay backgrounds */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 bg-black/60 transition-all" style={{ height: `${cropPercent.top}%` }} />
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 transition-all" style={{ height: `${cropPercent.bottom}%` }} />
-                  <div className="absolute top-0 bottom-0 left-0 bg-black/60 transition-all" style={{ top: `${cropPercent.top}%`, bottom: `${cropPercent.bottom}%`, width: `${cropPercent.left}%` }} />
-                  <div className="absolute top-0 bottom-0 right-0 bg-black/60 transition-all" style={{ top: `${cropPercent.top}%`, bottom: `${cropPercent.bottom}%`, width: `${cropPercent.right}%` }} />
+                {/* Visual crop border overlays wrapping */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+                  {/* Top grey out */}
+                  <div className="absolute top-0 left-0 right-0 bg-black/60" style={{ height: `${cropPercent.top}%` }} />
+                  {/* Bottom grey out */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60" style={{ height: `${cropPercent.bottom}%` }} />
+                  {/* Left grey out */}
+                  <div className="absolute top-0 bottom-0 left-0 bg-black/60" style={{ top: `${cropPercent.top}%`, bottom: `${cropPercent.bottom}%`, width: `${cropPercent.left}%` }} />
+                  {/* Right grey out */}
+                  <div className="absolute top-0 bottom-0 right-0 bg-black/60" style={{ top: `${cropPercent.top}%`, bottom: `${cropPercent.bottom}%`, width: `${cropPercent.right}%` }} />
                 </div>
 
-                {/* Central highlighted crop path window */}
+                {/* Handles draggable crop box */}
                 <div 
-                  className="absolute border-2 border-dashed border-white ring-2 ring-emerald-500/80 cursor-move"
+                  className="absolute border border-emerald-500 bg-emerald-500/5 cursor-move shadow-[0_0_0_1px_rgba(255,255,255,0.75)]"
                   style={{
                     left: `${cropPercent.left}%`,
                     right: `${cropPercent.right}%`,
@@ -1018,342 +613,257 @@ export default function SignatureResizer() {
                   }}
                   onPointerDown={(e) => handlePointerDown(e, 'drag')}
                 >
-                  {/* 4 Corners Grab nodes */}
+                  {/* Four corners handles (Figma style) */}
                   <div 
-                    className="absolute -top-2.5 -left-2.5 w-5 h-5 bg-white border-2 border-emerald-500 rounded-full cursor-nwse-resize shadow-md flex items-center justify-center pointer-events-auto active:scale-110 transition-transform"
+                    className="absolute w-3 h-3 bg-white border-2 border-emerald-500 rounded-full cursor-nwse-resize shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-125 active:scale-150 transition-all pointer-events-auto"
+                    style={{ top: '-6px', left: '-6px' }}
                     onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(e, 'handle-tl'); }}
+                    title="Drag Corner"
                   />
                   <div 
-                    className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-white border-2 border-emerald-500 rounded-full cursor-nesw-resize shadow-md flex items-center justify-center pointer-events-auto active:scale-110 transition-transform"
+                    className="absolute w-3 h-3 bg-white border-2 border-emerald-500 rounded-full cursor-nesw-resize shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-125 active:scale-150 transition-all pointer-events-auto"
+                    style={{ top: '-6px', right: '-6px' }}
                     onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(e, 'handle-tr'); }}
+                    title="Drag Corner"
                   />
                   <div 
-                    className="absolute -bottom-2.5 -left-2.5 w-5 h-5 bg-white border-2 border-emerald-500 rounded-full cursor-nesw-resize shadow-md flex items-center justify-center pointer-events-auto active:scale-110 transition-transform"
+                    className="absolute w-3 h-3 bg-white border-2 border-emerald-500 rounded-full cursor-nesw-resize shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-125 active:scale-150 transition-all pointer-events-auto"
+                    style={{ bottom: '-6px', left: '-6px' }}
                     onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(e, 'handle-bl'); }}
+                    title="Drag Corner"
                   />
                   <div 
-                    className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-white border-2 border-emerald-500 rounded-full cursor-nwse-resize shadow-md flex items-center justify-center pointer-events-auto active:scale-110 transition-transform"
+                    className="absolute w-3 h-3 bg-white border-2 border-emerald-500 rounded-full cursor-nwse-resize shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-125 active:scale-150 transition-all pointer-events-auto"
+                    style={{ bottom: '-6px', right: '-6px' }}
                     onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(e, 'handle-br'); }}
+                    title="Drag Corner"
                   />
 
-                  {/* Sub-label */}
-                  <span className="absolute bottom-1 right-1 bg-black/80 text-[8px] font-mono font-bold text-white px-1 py-0.5 rounded shadow pointer-events-none">
-                    {Math.round(100 - cropPercent.left - cropPercent.right)}% × {Math.round(100 - cropPercent.top - cropPercent.bottom)}%
-                  </span>
+                  {/* Four middle-sides handles for 8-way stretching (Pills) */}
+                  <div 
+                    className="absolute w-5 h-1.5 bg-white border border-emerald-500 rounded-full cursor-ns-resize shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-110 active:scale-125 transition-all pointer-events-auto"
+                    style={{ top: '-3.5px', left: '50%', transform: 'translateX(-50%)' }}
+                    onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(e, 'handle-t'); }}
+                    title="Drag Top"
+                  />
+                  <div 
+                    className="absolute w-5 h-1.5 bg-white border border-emerald-500 rounded-full cursor-ns-resize shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-110 active:scale-125 transition-all pointer-events-auto"
+                    style={{ bottom: '-3.5px', left: '50%', transform: 'translateX(-50%)' }}
+                    onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(e, 'handle-b'); }}
+                    title="Drag Bottom"
+                  />
+                  <div 
+                    className="absolute w-1.5 h-5 bg-white border border-emerald-500 rounded-full cursor-ew-resize shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-110 active:scale-125 transition-all pointer-events-auto"
+                    style={{ left: '-3.5px', top: '50%', transform: 'translateY(-50%)' }}
+                    onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(e, 'handle-l'); }}
+                    title="Drag Left"
+                  />
+                  <div 
+                    className="absolute w-1.5 h-5 bg-white border border-emerald-500 rounded-full cursor-ew-resize shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-110 active:scale-125 transition-all pointer-events-auto"
+                    style={{ right: '-3.5px', top: '50%', transform: 'translateY(-50%)' }}
+                    onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(e, 'handle-r'); }}
+                    title="Drag Right"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* Quick cropping presets */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-                Quick Crop Trims
-              </span>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setCropPercent({ left: 20, right: 20, top: 15, bottom: 15 })}
-                  className="py-1 px-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-center"
-                >
-                  Tight Margin Crop
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCropPercent({ left: 5, right: 5, top: 5, bottom: 5 })}
-                  className="py-1 px-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] font-bold text-indigo-600 dark:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-center"
-                >
-                  Full Signature Area
-                </button>
+            {/* Quick cropping resets and Rotation Controls */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Image adjustments</span>
+                <span className="text-[10px] text-slate-405 font-medium">Rotate to fix orientation</span>
               </div>
-            </div>
-
-            {/* Zoom & internal framing adjusters */}
-            <div className="space-y-3 pt-2.5 border-t border-slate-100 dark:border-slate-800">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-                Rotate & Align Straight
-              </span>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
-                  onClick={() => setRotation((prev) => (prev - 90 + 360) % 360)}
-                  className="flex-1 py-1.5 px-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-center gap-1 transition-all duration-150"
+                  onClick={() => handleRotate(false)}
+                  className="py-2.5 px-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer flex items-center justify-center gap-1.5 transition-all outline-none"
+                  title="Rotate Left"
                 >
-                  <LucideIcon name="RotateCcw" size={11} />
-                  <span>Rotate -90°</span>
+                  <RotateCcw size={13} className="text-emerald-500" />
+                  <span>Rotate L</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRotation((prev) => (prev + 90) % 360)}
-                  className="flex-1 py-1.5 px-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-center gap-1 transition-all duration-150"
+                  onClick={() => handleRotate(true)}
+                  className="py-2.5 px-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer flex items-center justify-center gap-1.5 transition-all outline-none"
+                  title="Rotate Right"
                 >
-                  <LucideIcon name="RotateCw" size={11} />
-                  <span>Rotate +90°</span>
+                  <RotateCw size={13} className="text-emerald-500" />
+                  <span>Rotate R</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setRotation(0); setTilt(0); }}
-                  className="py-1.5 px-2.5 bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 font-bold text-[10px] rounded-lg border border-rose-200/50 dark:border-rose-900/30 hover:bg-rose-100/50 cursor-pointer transition-all flex items-center gap-1"
+                  onClick={() => setCropPercent({ left: 24, right: 24, top: 22, bottom: 22 })}
+                  className="py-2.5 px-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer text-center outline-none"
                 >
-                  <LucideIcon name="X" size={11} />
-                  <span>Reset</span>
+                  Tight Crop
                 </button>
-              </div>
-
-              {/* Angle slider */}
-              <div className="space-y-1 pt-1 pb-2">
-                <div className="flex justify-between text-[11px] font-bold text-slate-550 dark:text-slate-300">
-                  <span>Fine-Tune Tilt Align:</span>
-                  <span className="font-mono text-indigo-600 dark:text-cyan-400 font-extrabold">{tilt > 0 ? `+${tilt}` : tilt}°</span>
-                </div>
-                <input
-                  type="range"
-                  min="-45"
-                  max="45"
-                  value={tilt}
-                  onChange={(e) => setTilt(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-cyan-400"
-                />
-              </div>
-
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pt-2 border-t border-dashed border-slate-100 dark:border-slate-850">
-                Micro Placement Adjustments
-              </span>
-
-              {/* Ink size scale zoom */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-bold text-slate-550 dark:text-slate-300">
-                  <span>Zoom Ink Fibers:</span>
-                  <span className="font-mono text-indigo-600 dark:text-cyan-400 font-extrabold">{zoom}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="55"
-                  max="250"
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-cyan-400"
-                />
-              </div>
-
-              {/* Pan Horizontal / Vertical */}
-              <div className="grid grid-cols-2 gap-3 pb-1">
-                <div className="space-y-0.5">
-                  <div className="text-[11px] font-bold text-slate-500">Pan Left/Right</div>
-                  <input
-                    type="range"
-                    min="-200"
-                    max="200"
-                    value={offsetX}
-                    onChange={(e) => setOffsetX(Number(e.target.value))}
-                    className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-650"
-                  />
-                </div>
-                <div className="space-y-0.5">
-                  <div className="text-[11px] font-bold text-slate-500">Pan Up/Down</div>
-                  <input
-                    type="range"
-                    min="-200"
-                    max="200"
-                    value={offsetY}
-                    onChange={(e) => setOffsetY(Number(e.target.value))}
-                    className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-650"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setCropPercent({ left: 10, right: 10, top: 15, bottom: 15 })}
+                  className="py-2.5 px-3 bg-emerald-55 hover:bg-emerald-500/10 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 border border-emerald-200/50 dark:border-emerald-900/40 rounded-xl text-xs font-black text-emerald-600 dark:text-emerald-400 cursor-pointer text-center outline-none"
+                >
+                  Reset Focus
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Bento Box 3: Form Compliance & Auto-Size Limit (Column Right) */}
-          <div className="lg:col-span-4 space-y-5 bg-white dark:bg-slate-905 p-5 rounded-2xl border border-slate-100/80 dark:border-slate-800/80 shadow-sm flex flex-col">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2 mb-1">
-              <span className="p-1 px-1.5 rounded-lg bg-indigo-50 dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 font-black text-xs font-mono">3</span>
-              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-350 uppercase tracking-widest">
-                Compliance Output
-              </h4>
-            </div>
-
-            {/* Target Size Input Panel */}
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-[#e2e8f0] dark:border-slate-900 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider">
-                  Select Target JPG Limits
+          {/* RIGHT SIDE: Target settings & Download Section */}
+          <div className="space-y-5 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-sm flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-150 dark:border-slate-800 pb-2.5">
+                <span className="w-5 h-5 rounded bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">2</span>
+                <span className="font-bold text-xs text-slate-700 dark:text-slate-350 uppercase tracking-wider">
+                  Select Target File Size
                 </span>
-                <input
-                  type="checkbox"
-                  checked={compressToTarget}
-                  onChange={(e) => setCompressToTarget(e.target.checked)}
-                  className="w-4.5 h-4.5 accent-emerald-500 rounded cursor-pointer"
-                  id="compress-target-toggle"
-                />
               </div>
 
-              {compressToTarget ? (
-                <div className="space-y-2 animate-fadeIn">
+              {/* MB/KB target input container */}
+              <div className="p-4 bg--slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-150 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                    Target File Size Limit
+                  </span>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <input
+                      id="use-size-limit-toggle"
+                      type="checkbox"
+                      checked={compressToTarget}
+                      onChange={(e) => setCompressToTarget(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-500 cursor-pointer"
+                    />
+                    <label htmlFor="use-size-limit-toggle" className="cursor-pointer select-none">Compress to limit</label>
+                  </div>
+                </div>
+
+                {compressToTarget && (
                   <div className="flex items-center gap-2">
                     <input
                       type="number"
-                      step={targetSizeUnit === 'kb' ? '1' : '0.1'}
                       min="1"
                       value={targetSizeValue}
                       onChange={(e) => setTargetSizeValue(e.target.value)}
-                      className="w-24 text-xs px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-100 font-mono font-bold font-extrabold outline-none"
+                      className="w-24 text-xs px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg text-slate-800 dark:text-slate-100 font-mono font-bold font-extrabold outline-none"
                     />
                     <select
                       value={targetSizeUnit}
                       onChange={(e) => setTargetSizeUnit(e.target.value as any)}
-                      className="text-xs py-1.5 px-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-bold"
+                      className="text-xs py-1.5 px-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg font-bold cursor-pointer text-slate-700 dark:text-slate-300 outline-none"
                     >
-                      <option value="kb">KB limit</option>
-                      <option value="mb">MB limit</option>
+                      <option value="kb">KB (Typical)</option>
+                      <option value="mb">MB</option>
                     </select>
                   </div>
-                  <p className="text-[9.5px] text-slate-400 leading-normal">
-                    ToolMitra will auto-tune JPG pixel compression matrix to stay strictly within <span className="font-bold text-indigo-600 dark:text-cyan-400">{targetSizeValue} {targetSizeUnit.toUpperCase()}</span>.
+                )}
+                
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  Fits government regulations. (Standard Aadhaar/PAN portal limit is <span className="font-bold text-emerald-500">20 KB</span> or <span className="font-bold text-emerald-500">50 KB</span>).
+                </p>
+              </div>
+
+              {/* Scanned/photo cleaner auto checkbox */}
+              <div className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-150 dark:border-slate-800">
+                <input
+                  id="auto-clean-scans"
+                  type="checkbox"
+                  checked={autoEnhance && backgroundMode === 'white'}
+                  disabled={backgroundMode === 'original'}
+                  onChange={(e) => setAutoEnhance(e.target.checked)}
+                  className="w-4.5 h-4.5 accent-emerald-500 rounded cursor-pointer mt-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+                <div className={`space-y-0.5 ${backgroundMode === 'original' ? 'opacity-55' : ''}`}>
+                  <label htmlFor="auto-clean-scans" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                    Clean Signature Background Scan
+                  </label>
+                  <p className="text-[10px] text-slate-400">
+                    {backgroundMode === 'original'
+                      ? "Automatically disabled to preserve the signature's original background imagery."
+                      : "Automatically removes background grey shadows, tea stains, wrinkles, and paper notebook stripes, leaving perfect black ink on solid white!"}
                   </p>
                 </div>
-              ) : (
-                <div className="space-y-2 text-slate-400 text-xs animate-fadeIn py-1">
-                  <p className="text-[10px] leading-normal font-medium text-slate-500">
-                    Auto-tune is disabled. Output quality will be set manually using slider below:
-                  </p>
-                  
-                  {outputFormat === 'jpg' ? (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[11px] font-bold text-slate-500">
-                        <span>Quality compression:</span>
-                        <span className="font-mono">{Math.round(quality * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.20"
-                        max="0.95"
-                        step="0.05"
-                        value={quality}
-                        onChange={(e) => setQuality(parseFloat(e.target.value))}
-                        className="w-full h-1 accent-indigo-500 bg-slate-200 dark:bg-slate-800"
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-indigo-500 font-bold">
-                      PNG formats encode using lossless full pixel fidelity. No quality degradation available.
-                    </div>
-                  )}
+              </div>
+
+              {/* Download output formats */}
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Format</label>
+                  <select
+                    value={outputFormat}
+                    onChange={(e) => setOutputFormat(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-bold cursor-pointer text-slate-700 dark:text-slate-300 outline-none"
+                  >
+                    <option value="jpg">JPG Format (Recommended)</option>
+                    <option value="jpeg">JPEG Format</option>
+                    <option value="png">PNG Format</option>
+                  </select>
                 </div>
-              )}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Background</label>
+                  <select
+                    value={backgroundMode}
+                    onChange={(e) => setBackgroundMode(e.target.value as 'white' | 'original')}
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-bold cursor-pointer text-slate-700 dark:text-slate-300 outline-none"
+                  >
+                    <option value="white">Solid Pure White</option>
+                    <option value="original">Original Background</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
-            {/* Display output image frame */}
-            <div className="flex-1 min-h-[185px] max-h-[250px] bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-150 dark:border-slate-850 p-3 flex flex-col items-center justify-center relative overflow-hidden">
-              {isProcessing ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-[10px] text-slate-400 font-mono">Ink trace cleaning...</span>
-                </div>
-              ) : downloadUrl ? (
-                <div 
-                  className="relative border border-slate-200 dark:border-slate-850 rounded-xl inline-flex flex-col items-center justify-center w-full max-w-sm select-none shadow shadow-inner group p-6 transition-all duration-300 animate-fadeIn"
-                  style={{
-                    backgroundColor: bgType === 'transparent' ? '#1e293b' : (bgType === 'original' ? '#faf8f5' : '#ffffff'),
-                    backgroundImage: bgType === 'transparent' 
-                      ? 'radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 0), radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 0)' 
-                      : 'none',
-                    backgroundSize: '10px 10px',
-                    backgroundPosition: '0 0, 5px 5px'
-                  }}
-                >
-                  <div className="absolute top-1 left-1.5 bg-emerald-500/10 text-emerald-600 dark:text-cyan-400 font-sans text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
-                    <span className="w-1 h-1 bg-emerald-500 rounded-full animate-ping" />
-                    {bgType === 'transparent' ? 'Transparent Watermark' : (bgType === 'original' ? 'Original Paper Background' : 'Solid White Background')}
+            {/* Bottom Actions section */}
+            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800 mt-6 md:mt-0">
+              {/* Byte Size Compliance representation */}
+              {downloadUrl && !isProcessing && (
+                <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/30 rounded-xl flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] text-slate-400 block tracking-wider uppercase font-semibold">Processed File Size</span>
+                    <span className="font-mono text-xs font-extrabold text-slate-500 dark:text-slate-300">
+                      Target Capacity: {targetSizeValue} {targetSizeUnit.toUpperCase()}
+                    </span>
                   </div>
-                  <img
-                    src={downloadUrl}
-                    alt="Processed Signature"
-                    referrerPolicy="no-referrer"
-                    className="max-h-[135px] max-w-full object-contain cursor-zoom-in transition-transform duration-200 hover:scale-105"
-                  />
-                </div>
-              ) : (
-                <div className="text-center space-y-1.5">
-                  <LucideIcon name="ShieldAlert" className="text-amber-500 mx-auto" size={24} />
-                  <p className="text-slate-400 text-xs">Awaiting processing parameters</p>
-                </div>
-              )}
-            </div>
-
-            {/* Final Byte Size Compliance Panel */}
-            {downloadUrl && !isProcessing && (
-              <div className="p-3.5 bg-emerald-50/40 dark:bg-slate-950/30 border border-emerald-150 dark:border-slate-850 rounded-2xl flex flex-col justify-center gap-1 shadow-sm">
-                <span className="text-[9px] uppercase font-bold text-slate-455 tracking-wider font-mono block text-center">
-                  Compliance Certification
-                </span>
-                <div className="grid grid-cols-2 gap-2 text-center pt-1.5">
-                  <div className="border-r border-slate-200 dark:border-slate-800 pr-1">
-                    <span className="text-[9px] text-slate-400 block leading-none block">Resulting Weight</span>
-                    <span className="font-mono text-sm font-extrabold text-emerald-500 block mt-1">
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400 block">Actual Weight</span>
+                    <span className="font-mono text-sm font-black text-emerald-500">
                       {formatByteSize(actualByteSize)}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-[9px] text-slate-400 block leading-none block">Automatic Tune</span>
-                    <span className="font-mono text-[10px] font-bold text-indigo-650 dark:text-cyan-400 block mt-1.5 leading-tight">
-                      {outputFormat === 'jpg' && compressToTarget ? `${Math.round(actualQualityUsed * 100)}% quality used` : `${outputFormat.toUpperCase()} Mode`}
-                    </span>
-                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Output configuration options */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Format</label>
-                <select
-                  value={outputFormat}
-                  onChange={(e) => {
-                    const fmt = e.target.value as any;
-                    setOutputFormat(fmt);
-                    if (fmt === 'jpg' && bgType === 'transparent') {
-                      setBgType('white');
-                    }
-                  }}
-                  className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-bold cursor-pointer outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100"
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:hover:bg-slate-750 font-bold text-xs rounded-xl transition-all cursor-pointer border border-slate-200/50 dark:border-slate-700 text-slate-700"
                 >
-                  <option value="jpg">JPG (Govt Portals)</option>
-                  <option value="png">PNG (High Quality)</option>
-                </select>
-              </div>
+                  Upload Another Signature
+                </button>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Background</label>
-                <select
-                  value={bgType}
-                  onChange={(e) => {
-                    const nextBg = e.target.value as any;
-                    setBgType(nextBg);
-                    if (nextBg === 'original') {
-                      setContrastFilter('normal');
-                    }
-                  }}
-                  className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-bold cursor-pointer outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100"
-                >
-                  <option value="white">Solid White</option>
-                  {outputFormat === 'png' && <option value="transparent">Transparent</option>}
-                  <option value="original">Keep Original Paper</option>
-                </select>
+                {downloadUrl && !isProcessing ? (
+                  <a
+                    href={downloadUrl}
+                    download={`cropped_signature_${targetSizeValue}${targetSizeUnit}.${outputFormat}`}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-black text-xs py-3 px-4 rounded-xl shadow-sm hover:shadow active:scale-99 transition-all cursor-pointer outline-none"
+                  >
+                    <LucideIcon name="Download" size={14} />
+                    <span>DOWNLOAD SIGNATURE</span>
+                  </a>
+                ) : (
+                  <button
+                    disabled
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800/50 text-slate-400 font-bold text-xs py-3 px-4 rounded-xl cursor-not-allowed border border-slate-200 dark:border-slate-850"
+                  >
+                    <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                    <span>Processing Scan...</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Large high contrast Action Download Trigger */}
-            {downloadUrl && !isProcessing && (
-              <a
-                href={downloadUrl}
-                download={`toolmitra_signature_${unit === 'px' ? widthPx + 'x' + heightPx + 'px' : widthCm + 'x' + heightCm + 'cm'}.${outputFormat}`}
-                className="w-full inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-black text-xs py-3.5 px-4 rounded-xl shadow-md cursor-pointer hover:scale-101 active:scale-99 transition-all outline-none"
-              >
-                <LucideIcon name="Download" size={14} />
-                <span>DOWNLOAD COMPLIANT IMAGES</span>
-              </a>
-            )}
           </div>
 
         </div>

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import LucideIcon from './LucideIcon';
-import { CATEGORIES, TOOLS } from '../data';
+import { CATEGORIES, TOOLS, SOCIAL_LINKS } from '../data';
 import { CategoryId, Tool } from '../types';
+import { useLanguage } from '../lib/LanguageContext';
 
 interface NavbarProps {
   onSelectCategory: (categoryId: CategoryId | 'all') => void;
@@ -22,16 +23,22 @@ export default function Navbar({
   onOpenAbout,
   onSelectTool
 }: NavbarProps) {
+  const { t, language, setLanguage } = useLanguage();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // Help & Support menu states inside mobile drawer
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [activeHelpSection, setActiveHelpSection] = useState<'instructions' | 'purpose' | 'faq' | 'terms'>('instructions');
 
   const desktopSearchRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      // Close search autocomplete outside bounds
       if (
         (desktopSearchRef.current && !desktopSearchRef.current.contains(event.target as Node)) &&
         (!mobileSearchRef.current || !mobileSearchRef.current.contains(event.target as Node))
@@ -108,7 +115,7 @@ export default function Navbar({
                 Tool<span className="bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent dark:from-cyan-400 dark:to-blue-400">Mitra</span>
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium tracking-wider uppercase">
-                Digital Companion
+                {t('logoSubtitle')}
               </span>
             </div>
           </div>
@@ -122,7 +129,7 @@ export default function Navbar({
               <input
                 id="desktop-search-input"
                 type="text"
-                placeholder="Search tools... (try 'compress', 'Aadhaar', 'resize')"
+                placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onFocus={() => setShowDropdown(true)}
                 onChange={(e) => {
@@ -194,30 +201,33 @@ export default function Navbar({
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
-              All Tools
+              {t('allTools')}
             </button>
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  onSelectCategory(cat.id);
-                  onSearchChange('');
-                }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCategory === cat.id && searchQuery === ''
-                    ? 'bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-cyan-400'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+            {CATEGORIES.map((cat) => {
+              const catName = cat.id === 'pdf' ? t('pdfTools') : cat.id === 'image' ? t('imageTools') : t('docTools');
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    onSelectCategory(cat.id);
+                    onSearchChange('');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCategory === cat.id && searchQuery === ''
+                      ? 'bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-cyan-400'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {catName}
+                </button>
+              );
+            })}
             <div className="w-[1px] h-5 bg-slate-200 dark:bg-slate-800 mx-2" />
             <button
               onClick={onOpenAbout}
               className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             >
-              Why ToolMitra?
+              {t('whyToolmitra')}
             </button>
           </nav>
 
@@ -236,13 +246,14 @@ export default function Navbar({
 
             {/* CTA App Trigger */}
             <button
+              id="desktop-explore-tools-cta"
               onClick={() => {
                 onSelectCategory('all');
                 document.getElementById('tools-catalog-section')?.scrollIntoView({ behavior: 'smooth' });
               }}
               className="hidden sm:inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-sky-500 dark:to-indigo-500 hover:from-blue-700 hover:to-indigo-700 text-white font-medium text-sm px-4 py-2 rounded-xl shadow-md hover:shadow-indigo-500/20 active:translate-y-[1px] transition-all"
             >
-              <span>Explore Tools</span>
+              <span>{t('exploreToolsBtn')}</span>
               <LucideIcon name="ArrowRight" size={14} />
             </button>
 
@@ -261,7 +272,7 @@ export default function Navbar({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div id="mobile-navigation-drawer" className="lg:hidden absolute top-full left-0 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xl py-4 px-4 flex flex-col gap-3 animate-fadeIn">
+        <div id="mobile-navigation-drawer" className="lg:hidden absolute top-full left-0 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xl py-4 px-4 flex flex-col gap-3 animate-fadeIn max-h-[85vh] overflow-y-auto">
           {/* Mobile Search */}
           <div ref={mobileSearchRef} className="relative w-full md:hidden mb-2">
             <div className="relative w-full">
@@ -377,6 +388,148 @@ export default function Navbar({
             <LucideIcon name="Info" size={18} />
             <span>Why Choose ToolMitra</span>
           </button>
+
+          <div className="h-[1px] bg-slate-200 dark:bg-slate-800 my-1" />
+          
+          <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2">
+            Settings & Support
+          </div>
+
+          {/* Interactive Language Selector */}
+          <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-2xl border border-slate-150 dark:border-slate-800/80">
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <LucideIcon name="Globe" size={14} className="text-indigo-600 dark:text-cyan-400" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Choose Language / भाषा निवडा</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { code: 'en', name: 'English', nativeName: 'English' },
+                { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+                { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
+                { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' }
+              ].map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => setLanguage(lang.code as any)}
+                  className={`px-3 py-2 text-xs rounded-xl font-medium tracking-wide transition-all border text-center flex flex-col justify-center items-center cursor-pointer ${
+                    language === lang.code
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-transparent shadow-sm'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span className="font-semibold text-[11px]">{lang.nativeName}</span>
+                  <span className="text-[9px] opacity-70 tracking-wider font-mono">{lang.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Collapsible Help guides, Terms, FAQs \& instructions */}
+          <div className="border border-slate-150 dark:border-slate-800/80 rounded-2xl bg-slate-50 dark:bg-slate-800/30 overflow-hidden">
+            <button
+              onClick={() => setHelpOpen(!helpOpen)}
+              className="w-full flex items-center justify-between p-3 cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <LucideIcon name="HelpCircle" size={15} className="text-indigo-650 dark:text-cyan-400" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Help & User Guide</span>
+              </div>
+              <LucideIcon name={helpOpen ? "ChevronUp" : "ChevronDown"} size={14} className="text-slate-500" />
+            </button>
+            
+            {helpOpen && (
+              <div className="p-3 pt-0 border-t border-slate-150 dark:border-slate-800/60 bg-white dark:bg-slate-905">
+                {/* Accordion Tabs */}
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg mb-3">
+                  {(['instructions', 'purpose', 'faq', 'terms'] as const).map((sec) => (
+                    <button
+                      key={sec}
+                      onClick={() => setActiveHelpSection(sec)}
+                      className={`flex-1 py-1 text-[10px] font-bold rounded-md capitalize transition-all cursor-pointer ${
+                        activeHelpSection === sec
+                          ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-cyan-400 shadow-sm'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-705'
+                      }`}
+                    >
+                      {sec === 'instructions' ? 'Guide' : sec === 'purpose' ? 'Tools' : sec}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tab contents */}
+                {activeHelpSection === 'instructions' && (
+                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">Step-by-Step Instructions:</div>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>Select any digital tool from our categories above.</li>
+                      <li>Drop or select your documents / photos locally.</li>
+                      <li>Adjust image quality parameters or target size parameters.</li>
+                      <li>Download files instantly. Processed offline!</li>
+                    </ol>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 italic mt-2">
+                      Note: Your files never leave your system. Completely private & secure.
+                    </p>
+                  </div>
+                )}
+
+                {activeHelpSection === 'purpose' && (
+                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 font-medium max-h-52 overflow-y-auto pr-1">
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">Which Tool is Used for What Purpose:</div>
+                    <div className="space-y-2 text-[11px]">
+                      <div>
+                        <strong className="text-slate-800 dark:text-slate-250">📄 PDF Suite (Merge, split, compress)</strong>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">Merge multi-file reports, split pages, or shrink sizes for strict submission limits.</p>
+                      </div>
+                      <div>
+                        <strong className="text-slate-805 dark:text-slate-250">🖼️ Image Suite (Resize, compress, format)</strong>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">Adjust photo width/height, convert modern web layouts to JPG, or wipe backgrounds instantly.</p>
+                      </div>
+                      <div>
+                        <strong className="text-slate-805 dark:text-slate-255">💼 Biometrics (Passport, Sign, Aadhaar card)</strong>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">Prepare identity photos to strict exam thresholds (3.5x4.5cm), resize signatures below 20KB/50KB limits, and combine Front/Back sides of Aadhaar cards onto a single sheet.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeHelpSection === 'faq' && (
+                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 font-medium max-h-52 overflow-y-auto pr-1">
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">Frequently Asked Questions:</div>
+                    <div className="space-y-2">
+                      <div className="p-1.5 rounded bg-slate-50 dark:bg-slate-800">
+                        <p className="font-bold text-slate-800 dark:text-slate-200 text-[10px]">Q: Are my uploaded documents secure?</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">Yes! All operations execute strictly within your local browser. Zero server uploads, zero remote logging.</p>
+                      </div>
+                      <div className="p-1.5 rounded bg-slate-50 dark:bg-slate-800">
+                        <p className="font-bold text-slate-800 dark:text-slate-200 text-[10px]">Q: What is the maximum file size limit?</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">There is no hard limit since calculations take place in your system's browser cache. It's completely unlimited!</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeHelpSection === 'terms' && (
+                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">Terms & Conditions Summary:</div>
+                    <p className="text-[10px] leading-relaxed">
+                      ToolMitra operations run 100% on client-side environments. Since no files are processed on cloud databases, user holds total sovereignty over their assets. Compliance is fully private under GDPR and IT guidelines.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* WhatsApp support call button */}
+          <a
+            href="https://wa.me/916393869405"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-2xl shadow-md shadow-emerald-500/10 active:scale-[0.98] transition-all text-xs cursor-pointer mt-0.5"
+          >
+            <LucideIcon name="Phone" size={15} />
+            <span>Support Chat on WhatsApp</span>
+          </a>
         </div>
       )}
     </header>

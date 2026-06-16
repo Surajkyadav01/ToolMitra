@@ -1,6 +1,7 @@
 import LucideIcon from './LucideIcon';
 import { Tool, Category } from '../types';
 import { CATEGORIES } from '../data';
+import { ArrowLeft } from 'lucide-react';
 
 // Import specialized digital tools
 import ImageCompressor from './tools/ImageCompressor';
@@ -122,7 +123,15 @@ export default function ToolProcessor({ tool, onBack }: ToolProcessorProps) {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="p-1.5 rounded-full bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-750 text-slate-650 hover:text-blue-500 dark:text-slate-300 dark:hover:text-cyan-450 transition-all cursor-pointer flex items-center justify-center shadow-sm hover:shadow-md hover:scale-105 active:scale-95 duration-150 shrink-0"
+              title="Go back to list of tools"
+              aria-label="Go back"
+            >
+              <ArrowLeft size={18} className="stroke-[2.5]" />
+            </button>
             <h2 className="font-display font-extrabold text-2xl text-slate-900 dark:text-white leading-9">
               {tool.name}
             </h2>
