@@ -4,7 +4,7 @@ import { LanguageCode, LANGUAGES, TRANSLATIONS } from './translations';
 interface LanguageContextProps {
   language: LanguageCode;
   setLanguage: (code: LanguageCode) => void;
-  t: (key: string) => string;
+  t: (key: string, fallback?: string) => string;
   languages: typeof LANGUAGES;
 }
 
@@ -27,9 +27,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const t = (key: string): string => {
+  const t = (key: string, fallback?: string): string => {
     const translationSet = TRANSLATIONS[language] || TRANSLATIONS['en'];
-    return translationSet[key] || TRANSLATIONS['en'][key] || key;
+    return translationSet[key] || TRANSLATIONS['en'][key] || fallback || key;
   };
 
   return (

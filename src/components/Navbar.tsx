@@ -31,6 +31,7 @@ export default function Navbar({
 
   // Help & Support menu states inside mobile drawer
   const [helpOpen, setHelpOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const [activeHelpSection, setActiveHelpSection] = useState<'instructions' | 'purpose' | 'faq' | 'terms'>('instructions');
 
   const desktopSearchRef = useRef<HTMLDivElement>(null);
@@ -340,7 +341,7 @@ export default function Navbar({
           </div>
 
           <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2">
-            Categories
+            {t('menu_categories', 'Categories')}
           </div>
           <button
             onClick={() => {
@@ -356,7 +357,7 @@ export default function Navbar({
             }`}
           >
             <LucideIcon name="LayoutGrid" size={18} />
-            <span>All Digital Tools</span>
+            <span>{t('all_suites', 'All Digital Tools')}</span>
           </button>
           {CATEGORIES.map((cat) => (
             <button
@@ -374,7 +375,7 @@ export default function Navbar({
               }`}
             >
               <LucideIcon name={cat.iconName} size={18} />
-              <span>{cat.name}</span>
+              <span>{t(`cat_${cat.id}_name`, cat.name)}</span>
             </button>
           ))}
           <div className="h-[1px] bg-slate-200 dark:bg-slate-800 my-1" />
@@ -383,48 +384,72 @@ export default function Navbar({
               onOpenAbout();
               setMobileMenuOpen(false);
             }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-left"
           >
             <LucideIcon name="Info" size={18} />
-            <span>Why Choose ToolMitra</span>
+            <span>{t('whyToolmitra', 'Why Choose ToolMitra')}</span>
           </button>
 
           <div className="h-[1px] bg-slate-200 dark:bg-slate-800 my-1" />
           
           <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2">
-            Settings & Support
+            {t('menu_settings_support', 'Settings & Support')}
           </div>
 
           {/* Interactive Language Selector */}
-          <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-2xl border border-slate-150 dark:border-slate-800/80">
-            <div className="flex items-center gap-2 mb-2 px-1">
-              <LucideIcon name="Globe" size={14} className="text-indigo-600 dark:text-cyan-400" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Choose Language / भाषा निवडा</span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {[
-                { code: 'en', name: 'English', nativeName: 'English' },
-                { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
-                { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
-                { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' }
-              ].map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => setLanguage(lang.code as any)}
-                  className={`px-3 py-2 text-xs rounded-xl font-medium tracking-wide transition-all border text-center flex flex-col justify-center items-center cursor-pointer ${
-                    language === lang.code
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-transparent shadow-sm'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <span className="font-semibold text-[11px]">{lang.nativeName}</span>
-                  <span className="text-[9px] opacity-70 tracking-wider font-mono">{lang.name}</span>
-                </button>
-              ))}
-            </div>
+          <div className="border border-slate-150 dark:border-slate-800/80 rounded-2xl bg-slate-50 dark:bg-slate-800/30 overflow-hidden">
+            <button
+              onClick={() => setLangOpen(!langOpen)}
+              className="w-full flex items-center justify-between p-3 cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <LucideIcon name="Globe" size={15} className="text-indigo-650 dark:text-cyan-400" />
+                <div className="flex flex-col items-start leading-none text-left">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{t('menu_choose_language', 'Choose Language / भाषा निवडा')}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
+                    {t('menu_active', 'Active: ')} {
+                      language === 'en' ? 'English' :
+                      language === 'hi' ? 'हिन्दी (Hindi)' :
+                      language === 'mr' ? 'मराठी (Marathi)' :
+                      language === 'bn' ? 'বাংলা (Bengali)' : 'English'
+                    }
+                  </span>
+                </div>
+              </div>
+              <LucideIcon name={langOpen ? "ChevronUp" : "ChevronDown"} size={14} className="text-slate-500" />
+            </button>
+
+            {langOpen && (
+              <div className="p-3 pt-0 border-t border-slate-150 dark:border-slate-800/60 bg-white dark:bg-slate-900">
+                <div className="grid grid-cols-2 gap-1.5 mt-3">
+                  {[
+                    { code: 'en', name: 'English', nativeName: 'English' },
+                    { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+                    { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
+                    { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' }
+                  ].map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        setLanguage(lang.code as any);
+                        setLangOpen(false);
+                      }}
+                      className={`px-3 py-2 text-xs rounded-xl font-medium tracking-wide transition-all border text-center flex flex-col justify-center items-center cursor-pointer ${
+                        language === lang.code
+                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-transparent shadow-sm'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <span className="font-semibold text-[11px]">{lang.nativeName}</span>
+                      <span className="text-[9px] opacity-70 tracking-wider font-mono">{lang.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Collapsible Help guides, Terms, FAQs \& instructions */}
+          {/* Collapsible Help guides, Terms, FAQs & instructions */}
           <div className="border border-slate-150 dark:border-slate-800/80 rounded-2xl bg-slate-50 dark:bg-slate-800/30 overflow-hidden">
             <button
               onClick={() => setHelpOpen(!helpOpen)}
@@ -432,7 +457,7 @@ export default function Navbar({
             >
               <div className="flex items-center gap-2">
                 <LucideIcon name="HelpCircle" size={15} className="text-indigo-650 dark:text-cyan-400" />
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Help & User Guide</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{t('menu_help_guide', 'Help & User Guide')}</span>
               </div>
               <LucideIcon name={helpOpen ? "ChevronUp" : "ChevronDown"} size={14} className="text-slate-500" />
             </button>
@@ -445,13 +470,13 @@ export default function Navbar({
                     <button
                       key={sec}
                       onClick={() => setActiveHelpSection(sec)}
-                      className={`flex-1 py-1 text-[10px] font-bold rounded-md capitalize transition-all cursor-pointer ${
+                      className={`flex-1 py-1 text-[10px] font-bold rounded-md capitalize transition-all cursor-pointer border-none ${
                         activeHelpSection === sec
                           ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-cyan-400 shadow-sm'
                           : 'text-slate-500 dark:text-slate-400 hover:text-slate-705'
                       }`}
                     >
-                      {sec === 'instructions' ? 'Guide' : sec === 'purpose' ? 'Tools' : sec}
+                      {sec === 'instructions' ? t('menu_tab_guide', 'Guide') : sec === 'purpose' ? t('menu_tab_tools', 'Tools') : sec === 'faq' ? t('menu_tab_faq', 'FAQ') : t('menu_tab_terms', 'Terms')}
                     </button>
                   ))}
                 </div>
@@ -459,34 +484,34 @@ export default function Navbar({
                 {/* Tab contents */}
                 {activeHelpSection === 'instructions' && (
                   <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
-                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">Step-by-Step Instructions:</div>
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">{t('menu_step_instructions_title', 'Step-by-Step Instructions:')}</div>
                     <ol className="list-decimal pl-4 space-y-1">
-                      <li>Select any digital tool from our categories above.</li>
-                      <li>Drop or select your documents / photos locally.</li>
-                      <li>Adjust image quality parameters or target size parameters.</li>
-                      <li>Download files instantly. Processed offline!</li>
+                      <li>{t('menu_step_1', 'Select any digital tool from our categories above.')}</li>
+                      <li>{t('menu_step_2', 'Drop or select your documents / photos locally.')}</li>
+                      <li>{t('menu_step_3', 'Adjust image quality parameters or target size parameters.')}</li>
+                      <li>{t('menu_step_4', 'Download files instantly. Processed offline!')}</li>
                     </ol>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 italic mt-2">
-                      Note: Your files never leave your system. Completely private & secure.
+                      {t('menu_step_note', 'Note: Your files never leave your system. Completely private & secure.')}
                     </p>
                   </div>
                 )}
 
                 {activeHelpSection === 'purpose' && (
                   <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 font-medium max-h-52 overflow-y-auto pr-1">
-                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">Which Tool is Used for What Purpose:</div>
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">{t('menu_purpose_title', 'Which Tool is Used for What Purpose:')}</div>
                     <div className="space-y-2 text-[11px]">
                       <div>
-                        <strong className="text-slate-800 dark:text-slate-250">📄 PDF Suite (Merge, split, compress)</strong>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">Merge multi-file reports, split pages, or shrink sizes for strict submission limits.</p>
+                        <strong className="text-slate-805 dark:text-slate-250">{t('menu_purpose_pdf_title', '📄 PDF Suite (Merge, split, compress)')}</strong>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">{t('menu_purpose_pdf_desc', 'Merge multi-file reports, split pages, or shrink sizes for strict submission limits.')}</p>
                       </div>
                       <div>
-                        <strong className="text-slate-805 dark:text-slate-250">🖼️ Image Suite (Resize, compress, format)</strong>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">Adjust photo width/height, convert modern web layouts to JPG, or wipe backgrounds instantly.</p>
+                        <strong className="text-slate-855 dark:text-slate-250">{t('menu_purpose_img_title', '🖼️ Image Suite (Resize, compress, format)')}</strong>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">{t('menu_purpose_img_desc', 'Adjust photo width/height, convert modern web layouts to JPG, or wipe backgrounds instantly.')}</p>
                       </div>
                       <div>
-                        <strong className="text-slate-805 dark:text-slate-255">💼 Biometrics (Passport, Sign, Aadhaar card)</strong>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">Prepare identity photos to strict exam thresholds (3.5x4.5cm), resize signatures below 20KB/50KB limits, and combine Front/Back sides of Aadhaar cards onto a single sheet.</p>
+                        <strong className="text-slate-855 dark:text-slate-255">{t('menu_purpose_bio_title', '💼 Biometrics (Passport, Sign, Aadhaar card)')}</strong>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px]">{t('menu_purpose_bio_desc', 'Prepare identity photos to strict exam thresholds (3.5x4.5cm), resize signatures below 20KB/50KB limits, and combine Front/Back sides of Aadhaar cards onto a single sheet.')}</p>
                       </div>
                     </div>
                   </div>
@@ -494,15 +519,15 @@ export default function Navbar({
 
                 {activeHelpSection === 'faq' && (
                   <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 font-medium max-h-52 overflow-y-auto pr-1">
-                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">Frequently Asked Questions:</div>
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">{t('faqTitle', 'Frequently Asked Questions:')}</div>
                     <div className="space-y-2">
                       <div className="p-1.5 rounded bg-slate-50 dark:bg-slate-800">
-                        <p className="font-bold text-slate-800 dark:text-slate-200 text-[10px]">Q: Are my uploaded documents secure?</p>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">Yes! All operations execute strictly within your local browser. Zero server uploads, zero remote logging.</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200 text-[10px]">{t('menu_faq_q1', 'Q: Are my uploaded documents secure?')}</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">{t('menu_faq_a1', 'Yes! All operations execute strictly within your local browser. Zero server uploads, zero remote logging.')}</p>
                       </div>
                       <div className="p-1.5 rounded bg-slate-50 dark:bg-slate-800">
-                        <p className="font-bold text-slate-800 dark:text-slate-200 text-[10px]">Q: What is the maximum file size limit?</p>
-                        <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">There is no hard limit since calculations take place in your system's browser cache. It's completely unlimited!</p>
+                        <p className="font-bold text-slate-805 dark:text-slate-200 text-[10px]">{t('menu_faq_q2', 'Q: What is the maximum file size limit?')}</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">{t('menu_faq_a2', "There is no hard limit since calculations take place in your system's browser cache. It's completely unlimited!")}</p>
                       </div>
                     </div>
                   </div>
@@ -510,9 +535,9 @@ export default function Navbar({
 
                 {activeHelpSection === 'terms' && (
                   <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
-                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">Terms & Conditions Summary:</div>
+                    <div className="text-[11px] font-bold text-indigo-600 dark:text-cyan-400">{t('menu_terms_title', 'Terms & Conditions Summary:')}</div>
                     <p className="text-[10px] leading-relaxed">
-                      ToolMitra operations run 100% on client-side environments. Since no files are processed on cloud databases, user holds total sovereignty over their assets. Compliance is fully private under GDPR and IT guidelines.
+                      {t('menu_terms_desc', 'ToolMitra operations run 100% on client-side environments. Since no files are processed on cloud databases, user holds total sovereignty over their assets. Compliance is fully private under GDPR and IT guidelines.')}
                     </p>
                   </div>
                 )}
@@ -522,13 +547,13 @@ export default function Navbar({
 
           {/* WhatsApp support call button */}
           <a
-            href="https://wa.me/916393869405"
+            href={SOCIAL_LINKS.whatsapp}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold rounded-2xl shadow-md shadow-emerald-500/10 active:scale-[0.98] transition-all text-xs cursor-pointer mt-0.5"
           >
             <LucideIcon name="Phone" size={15} />
-            <span>Support Chat on WhatsApp</span>
+            <span>{t('menu_whatsapp_btn', 'Support Chat on WhatsApp')}</span>
           </a>
         </div>
       )}

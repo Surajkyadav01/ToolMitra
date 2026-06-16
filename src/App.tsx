@@ -14,11 +14,13 @@ import LucideIcon from './components/LucideIcon';
 
 import { TOOLS, CATEGORIES } from './data';
 import { Tool, CategoryId } from './types';
+import { useLanguage } from './lib/LanguageContext';
 
 export default function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryId | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  const { t } = useLanguage();
 
   // Auto-scroll to top when a specific tool is launched to help the user start right away
   useEffect(() => {
@@ -69,12 +71,21 @@ export default function App() {
   };
 
   // Filter tools based on active visual filters
-  const filteredTools = TOOLS.filter((t) => {
-    const matchesCat = selectedCategoryId === 'all' || t.categoryId === selectedCategoryId;
+  const filteredTools = TOOLS.filter((item) => {
+    const matchesCat = selectedCategoryId === 'all' || item.categoryId === selectedCategoryId;
+    
+    // Support multi-language search by checking both raw database keys and actual UI translated content
+    const uiName = t(`tool_${item.id}_name`, item.name).toLowerCase();
+    const uiDesc = t(`tool_${item.id}_description`, item.description).toLowerCase();
+    const q = searchQuery.toLowerCase();
+    
     const matchesSearch =
       searchQuery === '' ||
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.description.toLowerCase().includes(searchQuery.toLowerCase());
+      item.name.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q) ||
+      uiName.includes(q) ||
+      uiDesc.includes(q);
+      
     return matchesCat && matchesSearch;
   });
 
@@ -114,12 +125,14 @@ export default function App() {
               <div id="catalog-category-navigator" className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-10 pb-6 border-b border-slate-100 dark:border-slate-800">
                 <div className="space-y-1">
                   <h3 className="font-display font-extrabold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
-                    Browse Free Digital Toolboxes
+                    {t('browse_title', 'Browse Free Digital Toolboxes')}
                   </h3>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
                     {searchQuery
-                      ? `Found ${filteredTools.length} matching workspaces for "${searchQuery}"`
-                      : 'Choose a category below to filter specialized browser utilities'}
+                      ? t('search_results_found', 'Found {count} matching workspaces for "{query}"')
+                          .replace('{count}', String(filteredTools.length))
+                          .replace('{query}', searchQuery)
+                      : t('browse_subtitle', 'Choose a category below to filter specialized browser utilities')}
                   </p>
                 </div>
 
@@ -134,7 +147,7 @@ export default function App() {
                     }`}
                   >
                     <LucideIcon name="LayoutGrid" size={13} className={selectedCategoryId === 'all' ? 'text-indigo-600 dark:text-cyan-400 animate-pulse' : 'text-slate-400'} />
-                    <span>All Suites</span>
+                    <span>{t('all_suites', 'All Suites')}</span>
                   </button>
                   {CATEGORIES.map((cat) => {
                     const isActive = selectedCategoryId === cat.id;
@@ -149,7 +162,7 @@ export default function App() {
                         }`}
                       >
                         <LucideIcon name={cat.iconName} size={13} className={isActive ? 'text-indigo-600 dark:text-cyan-400' : 'text-slate-400'} />
-                        <span>{cat.name}</span>
+                        <span>{t(`cat_${cat.id}_name`, cat.name)}</span>
                       </button>
                     );
                   })}
@@ -164,18 +177,18 @@ export default function App() {
                     <LucideIcon name="AlertCircle" size={26} />
                   </div>
                   <div className="space-y-1.5">
-                    <h4 className="font-display font-semibold text-slate-800 dark:text-slate-200">
-                      No matching tools found
+                    <h4 className="font-display font-semibold text-slate-805 dark:text-slate-200">
+                      {t('no_tools_found', 'No matching tools found')}
                     </h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      We couldn't locate any tools or files templates matching <strong className="font-semibold text-slate-600">{searchQuery}</strong>. Try scanning simpler terms.
+                    <p className="text-xs text-slate-450 leading-relaxed">
+                      {t('no_tools_desc', "We couldn't locate any tools or files templates matching {query}. Try scanning simpler terms.").replace('{query}', searchQuery)}
                     </p>
                   </div>
                   <button
                     onClick={() => handleSearchQuery('')}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl shadow-md transition-all cursor-pointer"
                   >
-                    Reset Filter Search
+                    {t('reset_search', 'Reset Filter Search')}
                   </button>
                 </div>
               ) : (
@@ -199,28 +212,28 @@ export default function App() {
                           </div>
                           {tool.badge && (
                             <span className="px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-slate-800 text-indigo-700 dark:text-cyan-400 text-[10px] font-bold uppercase tracking-wider">
-                              {tool.badge}
+                              {t(`tool_${tool.id}_badge`, tool.badge)}
                             </span>
                           )}
                         </div>
 
                         {/* Title & Description */}
                         <div>
-                          <h4 className="font-display font-bold text-slate-900 dark:text-white text-base group-hover:text-indigo-600 dark:group-hover:text-cyan-400 transition-colors leading-6">
-                            {tool.name}
+                          <h4 className="font-display font-bold text-slate-1000 dark:text-white text-base group-hover:text-indigo-600 dark:group-hover:text-cyan-400 transition-colors leading-6">
+                            {t(`tool_${tool.id}_name`, tool.name)}
                           </h4>
                           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-normal mt-2 min-h-[60px] md:min-h-[64px] h-auto line-clamp-3">
-                            {tool.description}
+                            {t(`tool_${tool.id}_description`, tool.description)}
                           </p>
                         </div>
                       </div>
 
                       {/* Footer Trigger node */}
-                      <div className="pt-4 border-t border-slate-100 dark:border-slate-850 mt-4 flex items-center justify-between text-xs font-semibold relative z-10">
+                      <div className="pt-4 border-t border-slate-100 dark:border-slate-850/80 mt-4 flex items-center justify-between text-xs font-semibold relative z-10">
                         <span className="text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-cyan-400 transition-colors">
-                          Launch Workspace
+                          {t('launch_workspace', 'Launch Workspace')}
                         </span>
-                        <span className="text-indigo-605 dark:text-cyan-400 group-hover:translate-x-1.5 transition-transform duration-200">
+                        <span className="text-indigo-650 dark:text-cyan-400 group-hover:translate-x-1.5 transition-transform duration-200">
                           <LucideIcon name="ArrowRight" size={14} />
                         </span>
                       </div>

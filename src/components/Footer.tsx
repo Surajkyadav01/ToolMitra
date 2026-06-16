@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import LucideIcon from './LucideIcon';
 import { SOCIAL_LINKS } from '../data';
+import { useLanguage } from '../lib/LanguageContext';
 
 interface FooterProps {
   onSelectCategory: (id: 'all' | 'pdf' | 'image' | 'document') => void;
@@ -9,6 +10,7 @@ interface FooterProps {
 
 export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
   const [modalType, setModalType] = useState<'privacy' | 'terms' | 'contact' | null>(null);
+  const { t } = useLanguage();
 
   const handleOpenModal = (type: 'privacy' | 'terms' | 'contact') => {
     setModalType(type);
@@ -35,7 +37,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
               </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
-              Your comprehensive desktop & mobile companion for lightning-fast digital file conversions, privacy-first photo formatting, and PDF operations. All processing is executed 100% locally inside your client browser.
+              {t('footer_description', 'Your comprehensive desktop & mobile companion for lightning-fast digital file conversions, privacy-first photo formatting, and PDF operations. All processing is executed 100% locally inside your client browser.')}
             </p>
             {/* Social Media Links */}
             <div className="flex items-center gap-3 pt-2">
@@ -85,18 +87,18 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
           {/* Column 2: Quick Links */}
           <div>
             <h4 className="font-display font-semibold text-white text-sm tracking-wider uppercase mb-4">
-              Digital Tool Suites
+              {t('footer_tool_suites', 'Digital Tool Suites')}
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <button
-                  onClick={() => {
+                   onClick={() => {
                     onSelectCategory('pdf');
                     document.getElementById('tools-catalog-section')?.scrollIntoView({ behavior: 'smooth' });
                   }}
                   className="hover:text-cyan-400 font-medium transition-colors cursor-pointer"
                 >
-                  PDF Document Tools
+                  {t('cat_pdf_name', 'PDF Document Tools')}
                 </button>
               </li>
               <li>
@@ -107,7 +109,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                   }}
                   className="hover:text-cyan-400 font-medium transition-colors cursor-pointer"
                 >
-                  Image Compressors
+                  {t('cat_image_name', 'Image Compressors')}
                 </button>
               </li>
               <li>
@@ -118,7 +120,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                   }}
                   className="hover:text-cyan-400 font-medium transition-colors cursor-pointer"
                 >
-                  Document & Form Prep
+                  {t('cat_document_name', 'Document & Form Prep')}
                 </button>
               </li>
               <li>
@@ -126,7 +128,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                   onClick={onOpenAbout}
                   className="hover:text-cyan-400 font-medium transition-colors cursor-pointer text-left"
                 >
-                  Why Browser Processing?
+                  {t('footer_why_browser', 'Why Browser Processing?')}
                 </button>
               </li>
             </ul>
@@ -135,7 +137,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
           {/* Column 3: Legal & Care */}
           <div>
             <h4 className="font-display font-semibold text-white text-sm tracking-wider uppercase mb-4">
-              Resources & Legal
+              {t('legalPrivacy', 'Resources & Legal')}
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
@@ -143,7 +145,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                   onClick={() => handleOpenModal('privacy')}
                   className="hover:text-cyan-400 font-medium transition-colors cursor-pointer"
                 >
-                  Privacy Policy
+                  {t('privacy', 'Privacy Policy')}
                 </button>
               </li>
               <li>
@@ -151,7 +153,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                   onClick={() => handleOpenModal('terms')}
                   className="hover:text-cyan-400 font-medium transition-colors cursor-pointer"
                 >
-                  Terms of Service
+                  {t('terms', 'Terms of Service')}
                 </button>
               </li>
               <li>
@@ -159,12 +161,12 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                   onClick={() => handleOpenModal('contact')}
                   className="hover:text-cyan-400 font-medium transition-colors cursor-pointer"
                 >
-                  Contact Support
+                  {t('contact', 'Contact Support')}
                 </button>
               </li>
               <li className="flex items-center gap-1 text-xs text-emerald-400 bg-slate-800/60 px-2 py-1 rounded w-max mt-2">
                 <LucideIcon name="ShieldCheck" size={12} />
-                <span>100% Client-Side Safe</span>
+                <span>{t('footer_client_safe', '100% Client-Side Safe')}</span>
               </li>
             </ul>
           </div>
@@ -172,10 +174,10 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
           {/* Column 4: WhatsApp Inquiry Form */}
           <div>
             <h4 className="font-display font-semibold text-white text-sm tracking-wider uppercase mb-4">
-              WhatsApp Integration
+              {t('footer_whatsapp_integration', 'WhatsApp Integration')}
             </h4>
             <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-              Facing issue with a document or need a custom utility? Send a direct WhatsApp ping.
+              {t('footer_whatsapp_desc', 'Facing issue with a document or need a custom utility? Send a direct WhatsApp ping.')}
             </p>
             <a
               href={SOCIAL_LINKS.whatsapp}
@@ -184,7 +186,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
               className="inline-flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs py-2 px-3 rounded-lg shadow transition-all hover:scale-[1.02]"
             >
               <LucideIcon name="Phone" size={14} />
-              <span>Contact WhatsApp Support</span>
+              <span>{t('footer_whatsapp_btn', 'Contact WhatsApp Support')}</span>
             </a>
           </div>
         </div>
@@ -194,19 +196,19 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
         {/* Footer Base */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            &copy; {new Date().getFullYear()} ToolMitra. All Rights Reserved. Made for developers, creators, and students.
+            &copy; {new Date().getFullYear()} ToolMitra. {t('footer_copyright', 'All Rights Reserved. Made for developers, creators, and students.')}
           </div>
           <div className="flex items-center gap-4">
             <button onClick={() => handleOpenModal('privacy')} className="hover:text-slate-300">
-              Privacy
+              {t('privacy', 'Privacy')}
             </button>
             <span>&bull;</span>
             <button onClick={() => handleOpenModal('terms')} className="hover:text-slate-300">
-              Terms
+              {t('terms', 'Terms')}
             </button>
             <span>&bull;</span>
             <button onClick={() => handleOpenModal('contact')} className="hover:text-slate-300">
-              Developer Info
+              {t('contact', 'Developer Info')}
             </button>
           </div>
         </div>
@@ -238,7 +240,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                     <LucideIcon name="ShieldCheck" size={20} />
                   </span>
                   <h3 className="font-display font-bold text-2xl text-slate-900 dark:text-white">
-                    Privacy Policy
+                    {t('privacy', 'Privacy Policy')}
                   </h3>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 italic">
@@ -277,7 +279,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                     <LucideIcon name="FileText" size={20} />
                   </span>
                   <h3 className="font-display font-bold text-2xl text-slate-900 dark:text-white">
-                    Terms of Service
+                    {t('terms', 'Terms of Service')}
                   </h3>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 italic">
@@ -315,10 +317,10 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                   </span>
                   <div className="flex flex-col">
                     <h3 className="font-display font-bold text-2xl text-slate-900 dark:text-white leading-6">
-                      Developer Contact
+                      {t('footer_dev_contact', 'Developer Contact')}
                     </h3>
                     <span className="text-xs text-slate-500 dark:text-slate-400">
-                      Reach Out & Collaborate
+                      {t('footer_reach_out', 'Reach Out & Collaborate')}
                     </span>
                   </div>
                 </div>
@@ -326,7 +328,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                 <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 p-5 rounded-xl flex flex-col md:flex-row items-start md:items-center gap-4 justify-between">
                   <div className="space-y-1">
                     <div className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
-                      Author & Architect
+                      {t('footer_author_title', 'Author & Architect')}
                     </div>
                     <div className="font-display font-bold text-lg text-slate-800 dark:text-white">
                       Sunil Kumar Yadav / Suraj
@@ -357,7 +359,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                       <LucideIcon name="Youtube" size={18} />
                     </span>
                     <div className="flex flex-col min-w-0">
-                      <span className="font-semibold text-sm text-slate-950 dark:text-slate-100">YouTube Channel</span>
+                      <span className="font-semibold text-sm text-slate-950 dark:text-slate-100">{t('footer_youtube_channel', 'YouTube Channel')}</span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 truncate">Tech Info Daily</span>
                     </div>
                   </a>
@@ -372,7 +374,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                       <LucideIcon name="Linkedin" size={18} />
                     </span>
                     <div className="flex flex-col min-w-0">
-                      <span className="font-semibold text-sm text-slate-950 dark:text-slate-100">LinkedIn Profile</span>
+                      <span className="font-semibold text-sm text-slate-950 dark:text-slate-100">{t('footer_linkedin_profile', 'LinkedIn Profile')}</span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 truncate">Sunil Kumar Yadav</span>
                     </div>
                   </a>
@@ -387,7 +389,7 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                       <LucideIcon name="Instagram" size={18} />
                     </span>
                     <div className="flex flex-col min-w-0">
-                      <span className="font-semibold text-sm text-slate-950 dark:text-slate-100">Instagram Feed</span>
+                      <span className="font-semibold text-sm text-slate-950 dark:text-slate-100">{t('footer_instagram_feed', 'Instagram Feed')}</span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 truncate">@its_.surajx01</span>
                     </div>
                   </a>
@@ -397,8 +399,8 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
                       <LucideIcon name="CheckCircle2" size={18} />
                     </span>
                     <div className="flex flex-col">
-                      <span className="font-semibold text-sm text-slate-950 dark:text-slate-100">Support State</span>
-                      <span className="text-xs text-emerald-500 font-medium">Always Active</span>
+                      <span className="font-semibold text-sm text-slate-950 dark:text-slate-100">{t('footer_support_state', 'Support State')}</span>
+                      <span className="text-xs text-emerald-500 font-medium">{t('footer_always_active', 'Always Active')}</span>
                     </div>
                   </div>
                 </div>

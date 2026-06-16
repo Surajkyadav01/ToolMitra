@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import LucideIcon from '../LucideIcon';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
 
 type TemplateType = 'ats-professional' | 'modern-indigo' | 'fresher-clean' | 'developer';
 
@@ -33,6 +35,7 @@ export default function AiResumeBuilder() {
   const [step, setStep] = useState<number>(1);
   const [template, setTemplate] = useState<TemplateType>('ats-professional');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
   const showNotification = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });
@@ -41,47 +44,38 @@ export default function AiResumeBuilder() {
 
   // Form states
   const [personal, setPersonal] = useState({
-    name: 'Suraj Kumar Yadav',
-    title: 'Full Stack Software Engineer',
-    email: 'suraj@example.com',
-    phone: '+91 98765 43210',
-    location: 'Delhi, India',
-    linkedin: 'linkedin.com/in/surajkumar',
-    portfolio: 'https://surajkyadav01.github.io/Suraj-Tech-Hub/',
+    name: '',
+    title: '',
+    email: '',
+    phone: '',
+    location: '',
+    linkedin: '',
+    portfolio: '',
+    github: '',
+    twitter: '',
   });
 
-  const [objective, setObjective] = useState(
-    'Highly focused Full Stack Software Engineer eager to leverage extensive experience in React, Nodejs, and scalable cloud architectures to build robust digital solutions, accelerate product delivery timelines, and optimize core frontend performance.'
-  );
+  const [objective, setObjective] = useState('');
 
   const [education, setEducation] = useState<EduEntry[]>([
-    { degree: 'Bachelor of Technology in Computer Science', school: 'Delhi Technical University', year: '2023', gpa: '8.8 CGPA' }
+    { degree: '', school: '', year: '', gpa: '' }
   ]);
 
   const [skills, setSkills] = useState({
-    technical: 'JavaScript, TypeScript, React.js, Node.js, Express, PostgreSQL, Tailwind CSS, Docker, REST APIs, Git',
-    soft: 'Problem Solving, Team Collaboration, Agile Methodologies, Technical Writing'
+    technical: '',
+    soft: ''
   });
 
   const [experience, setExperience] = useState<ExpEntry[]>([
-    {
-      role: 'Associate Software Developer',
-      company: 'TechSol Solutions Pvt. Ltd.',
-      duration: 'June 2023 - Present',
-      details: 'Built and styled reusable React components and dashboard interfaces using Tailwind CSS. Collaborated with core backend engineering groups to integrate REST API structures and optimized database transaction queries.'
-    }
+    { role: '', company: '', duration: '', details: '' }
   ]);
 
   const [projects, setProjects] = useState<ProjEntry[]>([
-    {
-      title: 'E-Commerce Analytics Platform',
-      tech: 'React, Node.js, PostgreSQL, Recharts',
-      details: 'Designed interactive product charts and reports using Recharts. Implemented secure client cookie sessions and accelerated dashboard render speeds by 40% using lazy-loading.'
-    }
+    { title: '', tech: '', details: '' }
   ]);
 
   const [certs, setCerts] = useState<CertEntry[]>([
-    { name: 'AWS Certified Cloud Practitioner', issuer: 'Amazon Web Services', year: '2024' }
+    { name: '', issuer: '', year: '' }
   ]);
 
   // AI Prompt Co-pilot helpers
@@ -159,21 +153,39 @@ export default function AiResumeBuilder() {
 
   // Add & delete list entries
   const handleAddEdu = () => setEducation([...education, { degree: '', school: '', year: '', gpa: '' }]);
-  const handleDelEdu = (idx: number) => setEducation(education.filter((_, i) => i !== idx));
+  const handleDelEdu = (idx: number) => {
+    const next = education.filter((_, i) => i !== idx);
+    setEducation(next.length > 0 ? next : [{ degree: '', school: '', year: '', gpa: '' }]);
+  };
 
   const handleAddExp = () => setExperience([...experience, { role: '', company: '', duration: '', details: '' }]);
-  const handleDelExp = (idx: number) => setExperience(experience.filter((_, i) => i !== idx));
+  const handleDelExp = (idx: number) => {
+    const next = experience.filter((_, i) => i !== idx);
+    setExperience(next.length > 0 ? next : [{ role: '', company: '', duration: '', details: '' }]);
+  };
 
   const handleAddProj = () => setProjects([...projects, { title: '', tech: '', details: '' }]);
-  const handleDelProj = (idx: number) => setProjects(projects.filter((_, i) => i !== idx));
+  const handleDelProj = (idx: number) => {
+    const next = projects.filter((_, i) => i !== idx);
+    setProjects(next.length > 0 ? next : [{ title: '', tech: '', details: '' }]);
+  };
 
   const handleAddCert = () => setCerts([...certs, { name: '', issuer: '', year: '' }]);
-  const handleDelCert = (idx: number) => setCerts(certs.filter((_, i) => i !== idx));
+  const handleDelCert = (idx: number) => {
+    const next = certs.filter((_, i) => i !== idx);
+    setCerts(next.length > 0 ? next : [{ name: '', issuer: '', year: '' }]);
+  };
 
   // High quality vector HTML Print compilation
   const triggerPrintPdf = () => {
     const resumeFrame = document.createElement('iframe');
-    resumeFrame.style.display = 'none';
+    resumeFrame.style.position = 'fixed';
+    resumeFrame.style.left = '-9999px';
+    resumeFrame.style.top = '0';
+    resumeFrame.style.width = '1024px';
+    resumeFrame.style.height = '768px';
+    resumeFrame.style.border = 'none';
+    resumeFrame.style.pointerEvents = 'none';
     document.body.appendChild(resumeFrame);
 
     const frameDoc = resumeFrame.contentDocument || resumeFrame.contentWindow?.document;
@@ -238,8 +250,10 @@ export default function AiResumeBuilder() {
         <div class="subtitle">${personal.title}</div>
         <div class="contact-bar">
           <span>${personal.email}</span> | <span>${personal.phone}</span> | <span>${personal.location}</span>
-          ${personal.linkedin ? ` | <span>${personal.linkedin}</span>` : ''}
-          ${personal.portfolio ? ` | <span>${personal.portfolio}</span>` : ''}
+          ${personal.linkedin ? ` | <span>LinkedIn: ${personal.linkedin}</span>` : ''}
+          ${personal.github ? ` | <span>GitHub: ${personal.github}</span>` : ''}
+          ${personal.twitter ? ` | <span>X: ${personal.twitter}</span>` : ''}
+          ${personal.portfolio ? ` | <span>Web: ${personal.portfolio}</span>` : ''}
         </div>
 
         ${objective ? `
@@ -309,8 +323,12 @@ export default function AiResumeBuilder() {
           <div style="font-weight:bold; color:#011627;">${personal.title}</div>
           <div class="contact-bar">
             <span>Email: ${personal.email}</span> | <span>Cell: ${personal.phone}</span> | <span>Loc: ${personal.location}</span><br/>
-            ${personal.linkedin ? `<span>LinkedIn: ${personal.linkedin}</span>` : ''}
-            ${personal.portfolio ? ` | <span>Web: ${personal.portfolio}</span>` : ''}
+            ${[
+              personal.linkedin ? `<span>LinkedIn: ${personal.linkedin}</span>` : '',
+              personal.github ? `<span>GitHub: ${personal.github}</span>` : '',
+              personal.twitter ? `<span>X: ${personal.twitter}</span>` : '',
+              personal.portfolio ? `<span>Web: ${personal.portfolio}</span>` : ''
+            ].filter(Boolean).join(' | ')}
           </div>
         </div>
 
@@ -349,11 +367,11 @@ export default function AiResumeBuilder() {
             <div class="side-section-title">CORE SKILLS</div>
             <div style="margin-bottom:8pt;">
               <strong>Stack:</strong><br/>
-              ${skills.technical.split(',').map(s => `<span class="badge">${s.trim()}</span>`).join('')}
+              ${skills.technical.trim() ? skills.technical.split(',').filter(s => s.trim()).map(s => `<span class="badge">${s.trim()}</span>`).join('') : ''}
             </div>
             <div style="margin-bottom:8pt;">
               <strong>Soft:</strong><br/>
-              ${skills.soft.split(',').map(s => `<span class="badge">${s.trim()}</span>`).join('')}
+              ${skills.soft.trim() ? skills.soft.split(',').filter(s => s.trim()).map(s => `<span class="badge">${s.trim()}</span>`).join('') : ''}
             </div>
 
             <div class="side-section-title">EDUCATION</div>
@@ -412,244 +430,283 @@ export default function AiResumeBuilder() {
     }, 500);
   };
 
-  const downloadHtmlResume = () => {
+  const downloadPdfResume = () => {
+    setIsGenerating(true);
+    const originalScrollX = window.scrollX;
+    const originalScrollY = window.scrollY;
+    
+    // Temporarily scroll to top-left to avoid html2canvas blank offsets on scroll
+    window.scrollTo(0, 0);
+
     let templateCss = '';
     if (template === 'ats-professional') {
       templateCss = `
-        body { font-family: 'Georgia', serif; padding: 0.5in; color: #111; line-height: 1.4; font-size: 10pt; }
-        h1 { font-size: 20pt; text-align: center; margin: 0 0 4pt 0; text-transform: uppercase; font-weight: normal; letter-spacing: 1px; }
-        .subtitle { text-align: center; font-style: italic; color: #555; margin-bottom: 12pt; border-bottom: 1px solid #111; padding-bottom: 6pt; }
-        .section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #000; margin: 14pt 0 6pt 0; padding-bottom: 1px; letter-spacing: 0.5px; }
-        .item { margin-bottom: 10pt; }
-        .item-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 1pt; }
-        .item-sub { display: flex; justify-content: space-between; font-style: italic; color: #444; margin-bottom: 2pt; }
-        ul { margin: 2pt 0 0 14pt; padding: 0; }
-        li { margin-bottom: 2pt; }
+        .pdf-resume { font-family: 'Georgia', serif; padding: 0.4in; color: #111; line-height: 1.4; font-size: 10pt; background: #fff; }
+        .pdf-resume h1 { font-size: 20pt; text-align: center; margin: 0 0 4pt 0; text-transform: uppercase; font-weight: normal; letter-spacing: 1px; }
+        .pdf-resume .subtitle { text-align: center; font-style: italic; color: #555; margin-bottom: 12pt; border-bottom: 1px solid #111; padding-bottom: 6pt; }
+        .pdf-resume .section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #000; margin: 14pt 0 6pt 0; padding-bottom: 1px; letter-spacing: 0.5px; }
+        .pdf-resume .item { margin-bottom: 10pt; }
+        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 1pt; }
+        .pdf-resume .item-sub { display: flex; justify-content: space-between; font-style: italic; color: #444; margin-bottom: 2pt; }
+        .pdf-resume ul { margin: 2pt 0 0 14pt; padding: 0; }
+        .pdf-resume li { margin-bottom: 2pt; }
       `;
     } else if (template === 'modern-indigo') {
       templateCss = `
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0.5in; color: #334155; line-height: 1.45; font-size: 9.5pt; }
-        h1 { font-size: 22pt; color: #4f46e5; margin: 0 0 2pt 0; font-weight: 800; tracking: -0.5px; }
-        .title-desc { font-size: 11pt; color: #64748b; font-weight: 600; margin-bottom: 8pt; }
-        .contact-bar { display: flex; flex-wrap: wrap; gap: 8pt; font-size: 8.5pt; color: #64748b; margin-bottom: 16pt; border-bottom: 2px solid #e2e8f0; padding-bottom: 10pt; }
-        .section-title { font-size: 12pt; font-weight: 700; color: #4f46e5; margin: 16pt 0 8pt 0; text-transform: uppercase; letter-spacing: 1px; }
-        .item { margin-bottom: 8pt; }
-        .item-header { display: flex; justify-content: space-between; font-weight: 700; color: #1e293b; }
-        .item-sub { display: flex; justify-content: space-between; color: #64748b; font-size: 9pt; margin-bottom: 2pt; }
+        .pdf-resume { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0.4in; color: #334155; line-height: 1.45; font-size: 9.5pt; background: #fff; }
+        .pdf-resume h1 { font-size: 22pt; color: #4f46e5; margin: 0 0 2pt 0; font-weight: 800; }
+        .pdf-resume .title-desc { font-size: 11pt; color: #64748b; font-weight: 600; margin-bottom: 8pt; }
+        .pdf-resume .contact-bar { display: flex; flex-wrap: wrap; gap: 8pt; font-size: 8.5pt; color: #64748b; margin-bottom: 16pt; border-bottom: 2px solid #e2e8f0; padding-bottom: 10pt; }
+        .pdf-resume .section-title { font-size: 12pt; font-weight: 700; color: #4f46e5; margin: 16pt 0 8pt 0; text-transform: uppercase; letter-spacing: 1px; }
+        .pdf-resume .item { margin-bottom: 8pt; }
+        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: 700; color: #1e293b; }
+        .pdf-resume .item-sub { display: flex; justify-content: space-between; color: #64748b; font-size: 9pt; margin-bottom: 2pt; }
       `;
     } else if (template === 'fresher-clean') {
       templateCss = `
-        body { font-family: 'Calibri', sans-serif; padding: 0.5in; color: #2d3748; line-height: 1.4; font-size: 10pt; }
-        h1 { font-size: 24pt; color: #2b6cb0; margin: 0 0 4pt 0; text-align: left; font-weight: bold; }
-        .contact-bar { font-size: 9pt; color: #718096; margin-bottom: 14pt; border-bottom: 1px dashed #cbd5e0; padding-bottom: 6pt; }
-        .section-title { font-size: 12pt; font-weight: bold; color: #2b6cb0; margin: 16pt 0 6pt 0; border-left: 4px solid #2b6cb0; padding-left: 6px; }
-        .item { margin-bottom: 8pt; }
-        .item-header { display: flex; justify-content: space-between; font-weight: bold; }
-        .item-sub { display: flex; justify-content: space-between; color: #4a5568; margin-bottom: 2pt; }
+        .pdf-resume { font-family: 'Calibri', sans-serif; padding: 0.4in; color: #2d3748; line-height: 1.4; font-size: 10pt; background: #fff; }
+        .pdf-resume h1 { font-size: 24pt; color: #2b6cb0; margin: 0 0 4pt 0; text-align: left; font-weight: bold; }
+        .pdf-resume .contact-bar { font-size: 9pt; color: #718096; margin-bottom: 14pt; border-bottom: 1px dashed #cbd5e0; padding-bottom: 6pt; }
+        .pdf-resume .section-title { font-size: 12pt; font-weight: bold; color: #2b6cb0; margin: 16pt 0 6pt 0; border-left: 4px solid #2b6cb0; padding-left: 6px; }
+        .pdf-resume .item { margin-bottom: 8pt; }
+        .pdf-resume .item-header { display: flex; justify-content: space-between; font-weight: bold; }
+        .pdf-resume .item-sub { display: flex; justify-content: space-between; color: #4a5568; margin-bottom: 2pt; }
       `;
     } else {
       templateCss = `
-        body { font-family: 'Consolas', monospace; padding: 0.4in; color: #011627; line-height: 1.4; font-size: 9pt; }
-        .header { border-bottom: 3px double #011527; padding-bottom: 10pt; margin-bottom: 14pt; }
-        h1 { font-size: 20pt; margin: 0; color: #011627; }
-        .contact-bar { font-size: 8.5pt; color: #475569; margin-top: 4pt; }
-        .layout-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 16pt; }
-        .section-title { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px dashed #011627; margin: 14pt 0 6pt 0; padding-bottom: 2px; }
-        .side-section-title { font-size: 9.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #111; margin-bottom: 6pt; margin-top: 10pt; }
-        .item { margin-bottom: 8pt; }
-        .item-header { font-weight: bold; display: flex; justify-content: space-between; }
-        .badge { display: inline-block; background-color: #f1f5f9; border: 1px solid #cbd5e1; padding: 1px 4px; font-size: 8pt; margin: 1px; }
+        .pdf-resume { font-family: 'Consolas', monospace; padding: 0.4in; color: #011627; line-height: 1.4; font-size: 9pt; background: #fff; }
+        .pdf-resume .header { border-bottom: 3px double #011527; padding-bottom: 10pt; margin-bottom: 14pt; }
+        .pdf-resume h1 { font-size: 20pt; margin: 0; color: #011627; }
+        .pdf-resume .contact-bar { font-size: 8.5pt; color: #475569; margin-top: 4pt; }
+        .pdf-resume .layout-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 16pt; }
+        .pdf-resume .section-title { font-size: 10.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px dashed #011627; margin: 14pt 0 6pt 0; padding-bottom: 2px; }
+        .pdf-resume .side-section-title { font-size: 9.5pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #111; margin-bottom: 6pt; margin-top: 10pt; }
+        .pdf-resume .item { margin-bottom: 8pt; }
+        .pdf-resume .item-header { font-weight: bold; display: flex; justify-content: space-between; }
+        .pdf-resume .badge { display: inline-block; background-color: #f1f5f9; border: 1px solid #cbd5e1; padding: 1px 4px; font-size: 8pt; margin: 1px; }
       `;
     }
 
     let bodyContent = '';
     if (template !== 'developer') {
       bodyContent = `
-        <h1>${personal.name}</h1>
-        <div class="subtitle">${personal.title}</div>
-        <div class="contact-bar">
-          <span>${personal.email}</span> | <span>${personal.phone}</span> | <span>${personal.location}</span>
-          ${personal.linkedin ? ` | <span>${personal.linkedin}</span>` : ''}
-          ${personal.portfolio ? ` | <span>${personal.portfolio}</span>` : ''}
-        </div>
-
-        ${objective ? `
-          <div class="section-title">Career Objective</div>
-          <p>${objective}</p>
-        ` : ''}
-
-        <div class="section-title">Core Professional Skills</div>
-        <div class="item">
-          <strong>Technical Skills:</strong> ${skills.technical}<br/>
-          <strong>Professional Competencies:</strong> ${skills.soft}
-        </div>
-
-        <div class="section-title">Work Experience</div>
-        ${experience.map(exp => `
-          <div class="item">
-            <div class="item-header">
-              <span>${exp.role}</span>
-              <span>${exp.duration}</span>
-            </div>
-            <div class="item-sub">
-              <span>${exp.company}</span>
-            </div>
-            <p style="margin:4pt 0 0 0; text-align:justify;">${exp.details}</p>
+        <div class="pdf-resume">
+          <h1>${personal.name}</h1>
+          <div class="subtitle">${personal.title}</div>
+          <div class="contact-bar" style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; font-size: 9pt; color: #555; margin-bottom: 12pt; border-bottom: 1px solid #ddd; padding-bottom: 8px;">
+            <span>${personal.email}</span> | <span>${personal.phone}</span> | <span>${personal.location}</span>
+            ${personal.linkedin ? ` | <span>LinkedIn: ${personal.linkedin}</span>` : ''}
+            ${personal.github ? ` | <span>GitHub: ${personal.github}</span>` : ''}
+            ${personal.twitter ? ` | <span>X: ${personal.twitter}</span>` : ''}
+            ${personal.portfolio ? ` | <span>Web: ${personal.portfolio}</span>` : ''}
           </div>
-        `).join('')}
 
-        <div class="section-title">Academic History</div>
-        ${education.map(edu => `
-          <div class="item">
-            <div class="item-header">
-              <span>${edu.degree}</span>
-              <span>${edu.year}</span>
-            </div>
-            <div class="item-sub">
-              <span>${edu.school}</span>
-              <span>${edu.gpa}</span>
-            </div>
+          ${objective ? `
+            <div class="section-title">Career Objective</div>
+            <p style="margin-top: 4px; text-align: justify; font-size: 10pt; white-space: pre-wrap;">${objective}</p>
+          ` : ''}
+
+          <div class="section-title">Core Professional Skills</div>
+          <div class="item" style="margin-top: 4px;">
+            <strong>Technical Skills:</strong> ${skills.technical}<br/>
+            <strong>Professional Competencies:</strong> ${skills.soft}
           </div>
-        `).join('')}
 
-        <div class="section-title">Key Projects &amp; Products</div>
-        ${projects.map(proj => `
-          <div class="item">
-            <div class="item-header">
-              <span>${proj.title}</span>
-              <span style="font-size:8.5pt; font-weight:normal; color:#555;">[${proj.tech}]</span>
-            </div>
-            <p style="margin:4pt 0 0 0; text-align:justify;">${proj.details}</p>
-          </div>
-        `).join('')}
-
-        ${certs.length > 0 ? `
-          <div class="section-title">Certifications &amp; Achievements</div>
-          ${certs.map(c => `
-            <div style="margin-bottom:4pt;">
-              <strong>${c.name}</strong> - Issued by <em>${c.issuer}</em> (${c.year})
+          <div class="section-title">Work Experience</div>
+          ${experience.map(exp => `
+            <div class="item" style="margin-top: 6px;">
+              <div class="item-header" style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>${exp.role}</span>
+                <span>${exp.duration}</span>
+              </div>
+              <div class="item-sub" style="font-style: italic; color: #555;">
+                <span>${exp.company}</span>
+              </div>
+              <p style="margin:4pt 0 0 0; text-align:justify; white-space: pre-wrap;">${exp.details}</p>
             </div>
           `).join('')}
-        ` : ''}
+
+          <div class="section-title">Academic History</div>
+          ${education.map(edu => `
+            <div class="item" style="margin-top: 6px;">
+              <div class="item-header" style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>${edu.degree}</span>
+                <span>${edu.year}</span>
+              </div>
+              <div class="item-sub" style="font-style: italic; color: #555; display: flex; justify-content: space-between;">
+                <span>${edu.school}</span>
+                <span>${edu.gpa}</span>
+              </div>
+            </div>
+          `).join('')}
+
+          <div class="section-title">Key Projects &amp; Products</div>
+          ${projects.map(proj => `
+            <div class="item" style="margin-top: 6px;">
+              <div class="item-header" style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>${proj.title}</span>
+                <span style="font-size:8.5pt; font-weight:normal; color:#555;">[${proj.tech}]</span>
+              </div>
+              <p style="margin:4pt 0 0 0; text-align:justify; white-space: pre-wrap;">${proj.details}</p>
+            </div>
+          `).join('')}
+
+          ${certs.length > 0 ? `
+            <div class="section-title">Certifications &amp; Achievements</div>
+            <div style="margin-top: 6px;">
+              ${certs.map(c => `
+                <div style="margin-bottom:4pt;">
+                  <strong>${c.name}</strong> - Issued by <em>${c.issuer}</em> (${c.year})
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
       `;
     } else {
       bodyContent = `
-        <div class="header">
-          <h1>${personal.name}</h1>
-          <div style="font-weight:bold; color:#011627;">${personal.title}</div>
-          <div class="contact-bar">
-            <span>Email: ${personal.email}</span> | <span>Cell: ${personal.phone}</span> | <span>Loc: ${personal.location}</span><br/>
-            ${personal.linkedin ? `<span>LinkedIn: ${personal.linkedin}</span>` : ''}
-            ${personal.portfolio ? ` | <span>Web: ${personal.portfolio}</span>` : ''}
-          </div>
-        </div>
-
-        <div class="layout-grid">
-          <div>
-            ${objective ? `
-              <div class="section-title">> Objective</div>
-              <p>${objective}</p>
-            ` : ''}
-
-            <div class="section-title">> Experience Timeline</div>
-            ${experience.map(exp => `
-              <div class="item">
-                <div class="item-header">
-                  <span>${exp.role}</span>
-                  <span style="font-weight:normal;">${exp.duration}</span>
-                </div>
-                <div style="font-style:italic; margin-bottom:2pt;">${exp.company}</div>
-                <p style="margin:2pt 0 0 0;">${exp.details}</p>
-              </div>
-            `).join('')}
-
-            <div class="section-title">> Featured Work</div>
-            ${projects.map(proj => `
-              <div class="item">
-                <div class="item-header">
-                  <span>${proj.title}</span>
-                  <span style="font-weight:normal; font-size:8pt;">[${proj.tech}]</span>
-                </div>
-                <p style="margin:2pt 0 0 0;">${proj.details}</p>
-              </div>
-            `).join('')}
+        <div class="pdf-resume">
+          <div class="header">
+            <h1>${personal.name}</h1>
+            <div style="font-weight:bold; color:#011627;">${personal.title}</div>
+            <div class="contact-bar">
+              <span>Email: ${personal.email}</span> | <span>Cell: ${personal.phone}</span> | <span>Loc: ${personal.location}</span><br/>
+              ${[
+                personal.linkedin ? `<span>LinkedIn: ${personal.linkedin}</span>` : '',
+                personal.github ? `<span>GitHub: ${personal.github}</span>` : '',
+                personal.twitter ? `<span>X: ${personal.twitter}</span>` : '',
+                personal.portfolio ? `<span>Web: ${personal.portfolio}</span>` : ''
+              ].filter(Boolean).join(' | ')}
+            </div>
           </div>
 
-          <div>
-            <div class="side-section-title">CORE SKILLS</div>
-            <div style="margin-bottom:8pt;">
-              <strong>Stack:</strong><br/>
-              ${skills.technical.split(',').map(s => `<span class="badge">${s.trim()}</span>`).join('')}
-            </div>
-            <div style="margin-bottom:8pt;">
-              <strong>Soft:</strong><br/>
-              ${skills.soft.split(',').map(s => `<span class="badge">${s.trim()}</span>`).join('')}
+          <div class="layout-grid">
+            <div>
+              ${objective ? `
+                <div class="section-title">> Objective</div>
+                <p style="white-space: pre-wrap;">${objective}</p>
+              ` : ''}
+
+              <div class="section-title">> Experience Timeline</div>
+              ${experience.map(exp => `
+                <div class="item">
+                  <div class="item-header">
+                    <span>${exp.role}</span>
+                    <span style="font-weight:normal;">${exp.duration}</span>
+                  </div>
+                  <div style="font-style:italic; margin-bottom:2pt;">${exp.company}</div>
+                  <p style="margin:2pt 0 0 0; white-space: pre-wrap;">${exp.details}</p>
+                </div>
+              `).join('')}
+
+              <div class="section-title">> Featured Work</div>
+              ${projects.map(proj => `
+                <div class="item">
+                  <div class="item-header">
+                    <span>${proj.title}</span>
+                    <span style="font-weight:normal; font-size:8pt;">[${proj.tech}]</span>
+                  </div>
+                  <p style="margin:2pt 0 0 0; white-space: pre-wrap;">${proj.details}</p>
+                </div>
+              `).join('')}
             </div>
 
-            <div class="side-section-title">EDUCATION</div>
-            ${education.map(edu => `
-              <div style="margin-bottom:6pt; font-size:8pt;">
-                <strong>${edu.degree}</strong><br/>
-                ${edu.school}<br/>
-                Class of ${edu.year} (${edu.gpa})
+            <div>
+              <div class="side-section-title">CORE SKILLS</div>
+              <div style="margin-bottom:8pt;">
+                <strong>Stack:</strong><br/>
+                ${skills.technical.trim() ? skills.technical.split(',').filter(s => s.trim()).map(s => `<span class="badge">${s.trim()}</span>`).join('') : ''}
               </div>
-            `).join('')}
+              <div style="margin-bottom:8pt;">
+                <strong>Soft:</strong><br/>
+                ${skills.soft.trim() ? skills.soft.split(',').filter(s => s.trim()).map(s => `<span class="badge">${s.trim()}</span>`).join('') : ''}
+              </div>
 
-            <div class="side-section-title">CERTIFICATES</div>
-            ${certs.map(c => `
-              <div style="margin-bottom:4pt; font-size:8pt;">
-                <strong>${c.name}</strong><br/>
-                ${c.issuer} (${c.year})
-              </div>
-            `).join('')}
+              <div class="side-section-title">EDUCATION</div>
+              ${education.map(edu => `
+                <div style="margin-bottom:6pt; font-size:8pt;">
+                  <strong>${edu.degree}</strong><br/>
+                  ${edu.school}<br/>
+                  Class of ${edu.year} (${edu.gpa})
+                </div>
+              `).join('')}
+
+              <div class="side-section-title">CERTIFICATES</div>
+              ${certs.map(c => `
+                <div style="margin-bottom:4pt; font-size:8pt;">
+                  <strong>${c.name}</strong><br/>
+                  ${c.issuer} (${c.year})
+                </div>
+              `).join('')}
+            </div>
           </div>
         </div>
       `;
     }
 
-    const fullHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${personal.name || 'Resume'}_CV_ToolMitra</title>
-  <style>
-    /* Reset and default margins for printing */
-    @page { size: letter; margin: 0; }
-    html, body { margin: 0; padding: 0; background: #fff; }
-    ${templateCss}
-    /* Simple extra print layout alignment defaults */
-    body { padding: 0.5in !important; background-color: #ffffff !important; color: #000000 !important; }
-    
-    @media print {
-      body { padding: 0.5in !important; }
-      .no-print-guide { display: none !important; }
-    }
-  </style>
-</head>
-<body>
-  ${bodyContent}
-  
-  <div class="no-print-guide" style="max-width: 600px; margin: 40px auto 0 auto; padding: 20px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
-    <p style="font-size: 14px; font-weight: bold; color: #1e293b; margin: 0 0 8px 0;">ToolMitra PDF Compiler Assistant</p>
-    <p style="font-size: 12px; color: #64748b; margin: 0 0 16px 0; line-height: 1.5;">
-      Your document was compiled successfully into pristine vector layout. Click the button below to open your operating system's native Print dialog, then select <strong>"Save as PDF"</strong>.
-    </p>
-    <button onclick="window.print()" style="padding: 10px 20px; background-color: #4f46e5; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-      🖨️ Open Print &amp; Save PDF
-    </button>
-  </div>
-</body>
-</html>`;
+    const container = document.createElement('div');
+    container.id = 'pdf-render-container';
+    container.style.position = 'fixed';
+    container.style.left = '0';
+    container.style.top = '0';
+    container.style.width = '816px';
+    container.style.background = '#ffffff';
+    container.style.color = '#000000';
+    container.style.opacity = '1';
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '999999'; // Positioned at 999999 so it is fully painted by the browser engine, but hidden behind the loader overlay (1000000)
+    container.style.overflow = 'visible';
 
-    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${(personal.name || 'My').replace(/\s+/g, '_')}_Resume_ATS.html`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showNotification("Beautiful standalone HTML resume generated and downloaded in 1-click!", "success");
+    const contentDiv = document.createElement('div');
+    contentDiv.innerHTML = `
+      <style>
+        ${templateCss}
+      </style>
+      ${bodyContent}
+    `;
+    container.appendChild(contentDiv);
+    document.body.appendChild(container);
+
+    const opt = {
+      margin:       0,
+      filename:     `${(personal.name || 'My').replace(/\s+/g, '_')}_Resume_ATS.pdf`,
+      image:        { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas:  { 
+        scale: 2.0, 
+        useCORS: true, 
+        logging: false, 
+        letterRendering: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 816,
+        windowHeight: 1056
+      },
+      jsPDF:        { unit: 'in' as const, format: 'letter' as const, orientation: 'portrait' as const }
+    };
+
+    showNotification("Compiling secure PDF layout... please wait.", "info");
+
+    setTimeout(() => {
+      html2pdf().from(container).set(opt).save().then(() => {
+        try {
+          document.body.removeChild(container);
+        } catch (e) {}
+        setIsGenerating(false);
+        // Restore normal scroll positions
+        window.scrollTo(originalScrollX, originalScrollY);
+        showNotification("ATS Resume PDF downloaded successfully!", "success");
+      }).catch((err: any) => {
+        console.error("PDF generation error: ", err);
+        try {
+          document.body.removeChild(container);
+        } catch (e) {}
+        setIsGenerating(false);
+        // Restore normal scroll positions
+        window.scrollTo(originalScrollX, originalScrollY);
+        showNotification("Failed to generate PDF automatically. Triggering print backup instead.", "error");
+        triggerPrintPdf();
+      });
+    }, 600);
   };
 
   return (
@@ -680,6 +737,21 @@ export default function AiResumeBuilder() {
         </div>
       )}
 
+      {/* High-fidelity PDF Compilation Overlay */}
+      {isGenerating && (
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center z-[1000000] animate-fadeIn">
+          <div className="p-8 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col items-center gap-4 text-center max-w-sm shadow-2xl">
+            <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent dark:border-cyan-400 dark:border-t-transparent rounded-full animate-spin"></div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest font-mono">Compiling Quality PDF</h4>
+              <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                Applying high-resolution vector styles and calibrating margins for automatic resume software. Please wait, your file will download automatically...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Configuration Column Form */}
       <div className="lg:col-span-7 space-y-6">
         
@@ -702,7 +774,7 @@ export default function AiResumeBuilder() {
                 className={`text-[11px] font-semibold py-1.5 px-3.5 rounded-full border transition-all cursor-pointer shrink-0 ${
                   step === s.id
                     ? 'border-indigo-600 bg-indigo-50/10 text-indigo-600 dark:border-cyan-500 dark:bg-cyan-950/40 dark:text-cyan-400 font-bold'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-55 dark:hover:bg-slate-800/40 hover:text-slate-800 dark:hover:text-slate-200'
+                    : 'border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800/40 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 {s.id}. {s.name}
@@ -712,7 +784,7 @@ export default function AiResumeBuilder() {
         </div>
 
         {/* Step panels inputs */}
-        <div className="p-5 border border-slate-150 dark:border-slate-805 bg-slate-50/40 dark:bg-slate-900/10 rounded-2xl min-h-[340px] flex flex-col justify-between">
+        <div className="p-5 border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/10 rounded-2xl min-h-[340px] flex flex-col justify-between">
           
           <div className="space-y-4">
             {step === 1 && (
@@ -771,7 +843,7 @@ export default function AiResumeBuilder() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-705">LinkedIn Profile Link</label>
+                    <label className="text-xs font-semibold text-slate-700">LinkedIn Profile Link</label>
                     <input
                       type="text"
                       value={personal.linkedin}
@@ -781,13 +853,36 @@ export default function AiResumeBuilder() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-705">Portfolio/Website Link</label>
+                    <label className="text-xs font-semibold text-slate-700">Portfolio/Website Link</label>
                     <input
                       type="text"
                       value={personal.portfolio}
                       onChange={(e) => setPersonal({ ...personal, portfolio: e.target.value })}
                       className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
                       placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">GitHub Profile Link</label>
+                    <input
+                      type="text"
+                      value={personal.github}
+                      onChange={(e) => setPersonal({ ...personal, github: e.target.value })}
+                      className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
+                      placeholder="github.com/..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Twitter/X Profile Link</label>
+                    <input
+                      type="text"
+                      value={personal.twitter}
+                      onChange={(e) => setPersonal({ ...personal, twitter: e.target.value })}
+                      className="w-full text-xs px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl outline-none"
+                      placeholder="x.com/..."
                     />
                   </div>
                 </div>
@@ -824,7 +919,7 @@ export default function AiResumeBuilder() {
                   <button
                     type="button"
                     onClick={handleAddEdu}
-                    className="py-1.5 px-3 bg-indigo-605 dark:bg-cyan-500 hover:bg-indigo-700 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-sm uppercase tracking-wider transition-all duration-200"
+                    className="py-1.5 px-3 bg-indigo-600 dark:bg-cyan-500 hover:bg-indigo-700 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-sm uppercase tracking-wider transition-all duration-200"
                   >
                     <LucideIcon name="Plus" size={12} />
                     <span>Add School</span>
@@ -937,7 +1032,7 @@ export default function AiResumeBuilder() {
                   <button
                     type="button"
                     onClick={handleAddExp}
-                    className="py-1.5 px-3 bg-indigo-605 dark:bg-cyan-500 hover:bg-indigo-700 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-sm uppercase tracking-wider transition-all duration-200"
+                    className="py-1.5 px-3 bg-indigo-600 dark:bg-cyan-500 hover:bg-indigo-700 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-sm uppercase tracking-wider transition-all duration-200"
                   >
                     <LucideIcon name="Plus" size={12} />
                     <span>Add Role</span>
@@ -1011,7 +1106,7 @@ export default function AiResumeBuilder() {
                   <button
                     type="button"
                     onClick={handleAddProj}
-                    className="py-1.5 px-3 bg-indigo-605 dark:bg-cyan-500 hover:bg-indigo-700 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-sm uppercase tracking-wider transition-all duration-200"
+                    className="py-1.5 px-3 bg-indigo-600 dark:bg-cyan-500 hover:bg-indigo-700 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-sm uppercase tracking-wider transition-all duration-200"
                   >
                     <LucideIcon name="Plus" size={12} />
                     <span>Add Project</span>
@@ -1087,7 +1182,7 @@ export default function AiResumeBuilder() {
                   <button
                     type="button"
                     onClick={handleAddCert}
-                    className="py-1.5 px-3 bg-indigo-605 dark:bg-cyan-500 hover:bg-indigo-700 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-sm uppercase tracking-wider transition-all duration-200"
+                    className="py-1.5 px-3 bg-indigo-600 dark:bg-cyan-500 hover:bg-indigo-700 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer shadow-sm uppercase tracking-wider transition-all duration-200"
                   >
                     <LucideIcon name="Plus" size={12} />
                     <span>Add Item</span>
@@ -1095,7 +1190,7 @@ export default function AiResumeBuilder() {
                 </div>
 
                 {certs.map((c, index) => (
-                  <div key={index} className="p-3 border border-slate-105 bg-white rounded-xl grid grid-cols-3 gap-2 relative group animate-fadeIn">
+                  <div key={index} className="p-3 border border-slate-200 bg-white rounded-xl grid grid-cols-3 gap-2 relative group animate-fadeIn">
                     <button
                       type="button"
                       onClick={() => handleDelCert(index)}
@@ -1148,7 +1243,7 @@ export default function AiResumeBuilder() {
               type="button"
               disabled={step === 1}
               onClick={() => setStep(step - 1)}
-              className="py-1.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-550 flex items-center gap-1 cursor-pointer disabled:opacity-40"
+              className="py-1.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-500 flex items-center gap-1 cursor-pointer disabled:opacity-40"
             >
               <LucideIcon name="ArrowRight" size={13} className="rotate-180" />
               <span>Back Step</span>
@@ -1167,17 +1262,17 @@ export default function AiResumeBuilder() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={downloadHtmlResume}
-                  className="py-1.5 px-4 bg-indigo-605 hover:bg-indigo-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
-                  title="Download offline-print-ready HTML which prints vector PDF"
+                  onClick={downloadPdfResume}
+                  className="py-1.5 px-4 bg-indigo-600 hover:bg-indigo-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white dark:text-slate-950 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                  title="Download offline-print-ready professional PDF"
                 >
                   <LucideIcon name="Download" size={13} />
-                  <span>Download HTML / PDF</span>
+                  <span>Download PDF</span>
                 </button>
                 <button
                   type="button"
                   onClick={triggerPrintPdf}
-                  className="py-1.5 px-3 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-705 dark:text-slate-300 text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-all"
+                  className="py-1.5 px-3 border border-slate-300 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-all"
                 >
                   <LucideIcon name="Printer" size={13} />
                   <span>Print Resume</span>
@@ -1227,11 +1322,11 @@ export default function AiResumeBuilder() {
         <div className="space-y-2">
           <button
             type="button"
-            onClick={downloadHtmlResume}
-            className="w-full py-3 bg-indigo-605 hover:bg-indigo-700 text-white dark:bg-cyan-500 dark:hover:bg-cyan-600 font-bold text-xs uppercase tracking-widest dark:text-slate-950 rounded-xl shadow-lg transition-transform hover:scale-102 flex items-center justify-center gap-2 cursor-pointer"
+            onClick={downloadPdfResume}
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-cyan-500 dark:hover:bg-cyan-600 font-bold text-xs uppercase tracking-widest dark:text-slate-950 rounded-xl shadow-lg transition-transform hover:scale-102 flex items-center justify-center gap-2 cursor-pointer"
           >
             <LucideIcon name="Download" size={14} />
-            <span>Download ATS Resume (Recommended)</span>
+            <span>Download ATS Resume PDF</span>
           </button>
           
           <button
@@ -1341,7 +1436,7 @@ export default function AiResumeBuilder() {
                   <button
                     type="button"
                     onClick={suggestSkills}
-                    className="flex-1 py-2.5 bg-indigo-605 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer"
+                    className="flex-1 py-2.5 bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer"
                   >
                     Suggest and Apply skills
                   </button>
@@ -1371,7 +1466,7 @@ export default function AiResumeBuilder() {
                   <button
                     type="button"
                     onClick={improveProject}
-                    className="flex-1 py-2.5 bg-indigo-605 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer"
+                    className="flex-1 py-2.5 bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer"
                   >
                     Improve and Apply using STAR Model
                   </button>
@@ -1393,19 +1488,19 @@ export default function AiResumeBuilder() {
       {/* About SEO panels */}
       <div className="lg:col-span-12 border-t border-slate-100 dark:border-slate-800 pt-8 mt-6">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">About AI ATS Resume Builder</h2>
-        <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed max-w-4xl mb-6">
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-4xl mb-6">
           The ToolMitra AI ATS Resume Builder compiles professional resumes engineered for automatic scanner software (ATS). Our system lets you build multiple sections, apply high-density custom templates, and generate customized high-impact career objective highlights entirely client-side safe.
         </p>
 
-        <h3 className="font-bold text-sm text-slate-800 dark:text-slate-205 mb-4">Frequently Asked Questions (FAQ)</h3>
+        <h3 className="font-bold text-sm text-slate-800 dark:text-slate-300 mb-4">Frequently Asked Questions (FAQ)</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-slate-150/80 dark:border-slate-805 bg-white/50 dark:bg-slate-900/10">
+          <div className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/50 dark:bg-slate-900/10">
             <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-1.5">What is an ATS-friendly resume?</h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
               These are documents featuring legible standard layout divisions without tables, graphics or charts that would confuse indexing robots. Clear fonts and metadata structure ensure your profile ranks high.
             </p>
           </div>
-          <div className="p-4 rounded-xl border border-slate-150/80 dark:border-slate-805 bg-white/50 dark:bg-slate-900/10">
+          <div className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white/50 dark:bg-slate-900/10">
             <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-1.5">Is my personal record saved or accessed online?</h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
               Never! Unlike platforms with massive databases, ToolMitra has no external cloud storage. Everything you type is stored locally and compiled dynamically in the browser sandbox.
