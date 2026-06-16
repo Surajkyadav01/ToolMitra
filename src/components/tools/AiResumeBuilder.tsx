@@ -31,6 +31,20 @@ interface CertEntry {
   year: string;
 }
 
+const DEFAULT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
+  <rect width="120" height="150" fill="#E2E8F0" />
+  <path d="M10 150 C 15 110, 105 110, 110 150 Z" fill="#1E293B" />
+  <path d="M50 125 L60 145 L70 125 Z" fill="#FFFFFF" />
+  <rect x="52" y="94" width="16" height="20" fill="#FED7AA" />
+  <ellipse cx="60" cy="70" rx="20" ry="24" fill="#FED7AA" />
+  <path d="M40 65 Q 60 40, 80 65 Q 60 44, 40 65 Z" fill="#090D16" />
+  <circle cx="53" cy="68" r="1.5" fill="#090D16" />
+  <circle cx="67" cy="68" r="1.5" fill="#090D16" />
+  <path d="M54 82 Q 60 86, 66 82" stroke="#E11D48" stroke-width="1.5" fill="none" />
+</svg>`;
+
+const DEFAULT_PROFILE_IMAGE = "data:image/svg+xml;base64," + btoa(DEFAULT_SVG);
+
 export default function AiResumeBuilder() {
   const [step, setStep] = useState<number>(1);
   const [template, setTemplate] = useState<TemplateType>('traditional-format');
@@ -42,7 +56,7 @@ export default function AiResumeBuilder() {
     setTimeout(() => setToast(null), 7000);
   };
 
-  // Form states empty so users can fill their own details easily and avoid confusion
+  // Empty form states so users can fill their own details easily
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [personal, setPersonal] = useState({
     name: '',
@@ -60,7 +74,7 @@ export default function AiResumeBuilder() {
     gender: '',
     nationality: '',
     maritalStatus: '',
-    declaration: 'I hereby declare that the above information given by me is true to best of my Knowledge.',
+    declaration: 'I hereby declare that the above information given by me is true to the best of my knowledge.',
   });
 
   const [objective, setObjective] = useState('');
@@ -203,27 +217,27 @@ export default function AiResumeBuilder() {
     let templateCss = '';
     if (template === 'traditional-format') {
       templateCss = `
-        body { font-family: 'Segoe UI', 'Arial', sans-serif; padding: 0.4in 0.5in; color: #111111; line-height: 1.45; font-size: 10pt; background: #fff; }
-        .resume-header-title { text-align: center; font-size: 18pt; font-weight: bold; color: #000; text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; }
-        .personal-name { font-size: 20pt; font-weight: bold; color: #000; margin-bottom: 2px; }
-        .personal-title { font-size: 11pt; font-style: normal; color: #1e3a8a; margin-bottom: 8px; font-weight: bold; }
-        .contact-split { display: flex; justify-content: space-between; font-size: 10pt; margin-top: 5px; line-height: 1.4; color: #111; }
-        .contact-left { width: 55%; }
-        .contact-right { width: 45%; text-align: right; }
-        .primary-hr { border: none; border-top: 1.5px solid #000; margin: 8px 0 15px 0; }
-        .section-banner { background-color: #e0f2fe; color: #1e3a8a; padding: 5px 10px; font-size: 11pt; font-weight: bold; text-transform: uppercase; margin-top: 18px; margin-bottom: 10px; border-radius: 2px; letter-spacing: 0.5px; border: 1px solid #bae6fd; font-family: 'Segoe UI', sans-serif; }
-        .section-text { font-size: 10pt; color: #111; margin-bottom: 12px; text-align: justify; line-height: 1.5; }
-        .academic-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; border: 1.5px solid #000; }
-        .academic-table th { background-color: #f1f5f9; color: #0f172a; font-weight: bold; font-size: 9.5pt; border: 1px solid #000; padding: 6px; text-align: left; }
-        .academic-table td { font-size: 9.5pt; border: 1px solid #000; padding: 6px; color: #111; }
-        .bullet-list { margin: 5px 0 12px 20px; padding: 0; list-style-type: disc; }
-        .bullet-list li { font-size: 10pt; color: #111; margin-bottom: 5px; line-height: 1.4; }
-        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        .info-table td { font-size: 10pt; padding: 3px 0; vertical-align: top; color: #111; }
-        .info-label { width: 25%; font-weight: bold; }
-        .info-colon { width: 5%; text-align: center; }
-        .info-val { width: 70%; }
-        .footer-signature { display: flex; justify-content: space-between; margin-top: 35px; font-size: 10pt; font-weight: bold; color: #111; }
+        body { font-family: 'Arial', sans-serif; padding: 0.45in 0.55in; color: #000000; line-height: 1.5; font-size: 10pt; background: #fff; }
+        .resume-header-title { text-align: center; font-size: 18pt; font-weight: bold; color: #000; text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 1.5px; font-family: 'Arial', sans-serif; }
+        .personal-name { font-size: 16pt; font-weight: bold; color: #000000; margin-bottom: 2px; }
+        .personal-title { font-size: 11pt; font-style: normal; color: #000000; margin-bottom: 6px; font-weight: bold; }
+        .contact-split { display: flex; justify-content: space-between; font-size: 9.5pt; margin-top: 5px; line-height: 1.5; color: #000000; }
+        .contact-left { width: 55%; font-size: 9.5pt; line-height: 1.4; }
+        .contact-right { width: 45%; text-align: left; font-size: 9.5pt; line-height: 1.4; padding-left: 20px; }
+        .primary-hr { border: none; border-top: 1.2px solid #000000; margin: 8px 0 12px 0; }
+        .section-banner { background-color: #E2E8F0; color: #000000; padding: 4px 8px; font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin-top: 14px; margin-bottom: 8px; border-radius: 0px; letter-spacing: 0.5px; font-family: 'Arial', sans-serif; }
+        .section-text { font-size: 9.5pt; color: #000000; margin-bottom: 8px; text-align: justify; line-height: 1.5; }
+        .academic-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; border: 1px solid #94a3b8; }
+        .academic-table th { background-color: #fff; color: #000000; font-weight: bold; font-size: 9.5pt; border: 1px solid #94a3b8; padding: 6px; text-align: left; }
+        .academic-table td { font-size: 9.5pt; border: 1px solid #94a3b8; padding: 6px; color: #000000; }
+        .bullet-list { margin: 4px 0 8px 16px; padding: 0; list-style-type: disc; }
+        .bullet-list li { font-size: 9.5pt; color: #000000; margin-bottom: 4px; line-height: 1.4; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .info-table td { font-size: 9.5pt; padding: 4px 0; vertical-align: top; color: #000000; }
+        .info-label { width: 28%; font-weight: bold; }
+        .info-colon { width: 4%; text-align: center; font-weight: bold; }
+        .info-val { width: 68%; }
+        .footer-signature { display: flex; justify-content: space-between; margin-top: 30px; font-size: 9.5pt; font-weight: bold; color: #000000; }
       `;
     } else if (template === 'ats-professional') {
       templateCss = `
@@ -285,33 +299,31 @@ export default function AiResumeBuilder() {
     if (template === 'traditional-format') {
       bodyContent = `
         <div class="resume-header-title">RESUME</div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
           <div style="flex: 1; min-width: 0; padding-right: 15px;">
             <div class="personal-name">${personal.name || 'Your Name'}</div>
-            <div class="personal-title">${personal.title || 'Target Role'}</div>
+            <div class="personal-title">${personal.title || 'Target Role / Title'}</div>
             
             <div class="contact-split">
               <div class="contact-left">
-                ${personal.location ? `<strong>Address:</strong><br/>${personal.location.replace(/\n/g, '<br/>')}` : ''}
+                <strong>Address:</strong><br/>${(personal.location || '').replace(/\n/g, '<br/>') || 'Your Full Address Here'}
               </div>
-              <div class="contact-right">
-                ${personal.phone ? `<strong>Mob No.:</strong> ${personal.phone}<br/>` : ''}
-                ${personal.email ? `<strong>Email Id:</strong> ${personal.email}` : ''}
+              <div class="contact-right" style="padding-left: 15px;">
+                <strong>Mob No.:</strong> ${personal.phone || 'Your Phone Number'}<br/>
+                <strong>Email Id:</strong> ${personal.email || 'your.email@example.com'}
               </div>
             </div>
           </div>
           ${profileImage ? `
-            <div style="width: 1.05in; height: 1.3in; border: 1.5px solid #000; padding: 1.5px; text-align: center; background-color: #fff; flex-shrink: 0; margin-left: 15px; margin-top: 5px;">
+            <div style="width: 1.05in; height: 1.3in; border: 1px solid #000; padding: 1.5px; text-align: center; background-color: #fff; flex-shrink: 0; margin-left: 15px;">
               <img src="${profileImage}" style="width: 100%; height: 100%; object-fit: cover;" />
             </div>
           ` : ''}
         </div>
         <hr class="primary-hr" />
 
-        ${objective ? `
-          <div class="section-banner">Career Objective</div>
-          <div class="section-text">${objective}</div>
-        ` : ''}
+        <div class="section-banner">Career Objective</div>
+        <div class="section-text" style="white-space: pre-wrap;">${objective || 'Seeking a professional position where I can utilize my skills, gain practical experience, and contribute to company growth through sincere and responsible work.'}</div>
 
         <div class="section-banner">Academic Qualification</div>
         <table class="academic-table">
@@ -325,52 +337,64 @@ export default function AiResumeBuilder() {
             </tr>
           </thead>
           <tbody>
-            ${education.map((edu, idx) => `
+            ${education.length > 0 && education.some(edu => edu.degree.trim() || edu.school.trim()) ? education.filter(edu => edu.degree.trim() || edu.school.trim()).map((edu, idx) => `
               <tr>
                 <td style="text-align: center;">${idx + 1}</td>
-                <td>${edu.degree}</td>
-                <td>${edu.school}</td>
-                <td style="text-align: center;">${edu.year}</td>
-                <td style="text-align: center;">${edu.gpa}</td>
+                <td>${edu.degree || 'Degree / Course'}</td>
+                <td>${edu.school || 'School / College / University'}</td>
+                <td style="text-align: center;">${edu.year || 'Year'}</td>
+                <td style="text-align: center;">${edu.gpa || 'Grade / %'}</td>
               </tr>
-            `).join('')}
+            `).join('') : `
+              <tr>
+                <td style="text-align: center;">1</td>
+                <td>Degree / Qualification Name</td>
+                <td>Board / University / School Name</td>
+                <td style="text-align: center;">YYYY</td>
+                <td style="text-align: center;">Grade / %</td>
+              </tr>
+            `}
           </tbody>
         </table>
 
-        ${skills.technical || skills.soft ? `
-          <div class="section-banner">Other Qualification</div>
-          <ul class="bullet-list">
-            ${skills.technical ? `<li>${skills.technical}</li>` : ''}
-            ${skills.soft ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : ''}
-          </ul>
-        ` : ''}
+        <div class="section-banner">Other Qualification</div>
+        <ul class="bullet-list">
+          ${skills.technical ? `<li>${skills.technical}</li>` : `<li>Computer Applications or Technical Certification Name (e.g., ADCA, Office Suites)</li>`}
+          ${skills.soft ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : `<li>Professional communication, active problem-solving, and team collaboration.</li>`}
+        </ul>
 
-        ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? `
-          <div class="section-banner">Work Experience</div>
-          <ul class="bullet-list">
-            ${experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
+        <div class="section-banner">Work Experience</div>
+        <ul class="bullet-list">
+          ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? 
+            experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
               <li><strong>${exp.role}</strong> at <strong>${exp.company}</strong> (${exp.duration})${exp.details ? `<br/><em>${exp.details}</em>` : ''}</li>
-            `).join('')}
-          </ul>
-        ` : ''}
+            `).join('') : `
+              <li><strong>Job Position / Title</strong> at <strong>Company Name</strong> (Duration - Present/Dates)</li>
+            `
+          }
+        </ul>
 
-        ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? `
-          <div class="section-banner">Key Projects &amp; Products</div>
-          <ul class="bullet-list">
-            ${projects.filter(proj => proj.title.trim()).map(proj => `
+        <div class="section-banner">Key Projects &amp; Products</div>
+        <ul class="bullet-list">
+          ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? 
+            projects.filter(proj => proj.title.trim()).map(proj => `
               <li><strong>${proj.title}</strong> ${proj.tech ? `[${proj.tech}]` : ''} ${proj.details ? `<br/><em>${proj.details}</em>` : ''}</li>
-            `).join('')}
-          </ul>
-        ` : ''}
+            `).join('') : `
+              <li><strong>Project / Automation Title</strong> [Technologies Used] <br/><em>Short description of work, achievements or key features designed.</em></li>
+            `
+          }
+        </ul>
 
-        ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? `
-          <div class="section-banner">Certifications &amp; Achievements</div>
-          <ul class="bullet-list">
-            ${certs.filter(c => c.name.trim()).map(c => `
+        <div class="section-banner">Certifications &amp; Achievements</div>
+        <ul class="bullet-list">
+          ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? 
+            certs.filter(c => c.name.trim()).map(c => `
               <li><strong>${c.name}</strong>${c.issuer ? ` - Issued by <em>${c.issuer}</em>` : ''}${c.year ? ` (${c.year})` : ''}</li>
-            `).join('')}
-          </ul>
-        ` : ''}
+            `).join('') : `
+              <li><strong>Certification / Award Name</strong> - Issued by <em>Organization / Academy</em> (Year)</li>
+            `
+          }
+        </ul>
 
         <div class="section-banner">Personal Information</div>
         <table class="info-table">
@@ -378,44 +402,47 @@ export default function AiResumeBuilder() {
             <tr>
               <td class="info-label">Father's Name</td>
               <td class="info-colon">:</td>
-              <td class="info-val">${personal.fatherName || 'Not Specified'}</td>
+              <td class="info-val">${personal.fatherName || "Father's Name"}</td>
             </tr>
             <tr>
               <td class="info-label">Date of Birth</td>
               <td class="info-colon">:</td>
-              <td class="info-val">${personal.dob || 'Not Specified'}</td>
+              <td class="info-val">${personal.dob || 'YYYY-MM-DD'}</td>
             </tr>
             <tr>
               <td class="info-label">Language Known</td>
               <td class="info-colon">:</td>
-              <td class="info-val">${personal.languages || 'Not Specified'}</td>
+              <td class="info-val">${personal.languages || 'Languages Known'}</td>
             </tr>
             <tr>
               <td class="info-label">Gender</td>
               <td class="info-colon">:</td>
-              <td class="info-val">${personal.gender || 'Not Specified'}</td>
+              <td class="info-val">${personal.gender || 'Your Gender'}</td>
             </tr>
             <tr>
               <td class="info-label">Nationality</td>
               <td class="info-colon">:</td>
-              <td class="info-val">${personal.nationality || 'Not Specified'}</td>
+              <td class="info-val">${personal.nationality || 'Your Nationality'}</td>
             </tr>
             <tr>
               <td class="info-label">Marital Status</td>
               <td class="info-colon">:</td>
-              <td class="info-val">${personal.maritalStatus || 'Not Specified'}</td>
+              <td class="info-val">${personal.maritalStatus || 'Single / Married'}</td>
             </tr>
           </tbody>
         </table>
 
-        ${personal.declaration ? `
-          <div class="section-banner">Declaration</div>
-          <div class="section-text">${personal.declaration}</div>
-        ` : ''}
+        <div class="section-banner">Declaration</div>
+        <div class="section-text" style="white-space: pre-wrap;">${personal.declaration || 'I hereby declare that the above information given by me is true to the best of my knowledge.'}</div>
 
-        <div class="footer-signature">
-          <div>Date :</div>
-          <div style="margin-right: 30px;">(${personal.name})</div>
+        <div class="footer-signature" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-weight: bold;">
+          <div style="text-align: left; line-height: 1.6;">
+            <div>Date : </div>
+            <div>Place : ${personal.location ? personal.location.split(',').pop()?.replace(/[\d\-\s]+$/, '').trim() || 'Your City' : 'Your City'}</div>
+          </div>
+          <div style="text-align: right; margin-right: 30px;">
+            (${personal.name || 'Your Name'})
+          </div>
         </div>
       `;
     } else if (template !== 'developer') {
@@ -610,27 +637,27 @@ export default function AiResumeBuilder() {
     let templateCss = '';
     if (template === 'traditional-format') {
       templateCss = `
-        .pdf-resume { font-family: 'Segoe UI', 'Arial', sans-serif; padding: 0.4in 0.5in; color: #111111; line-height: 1.45; font-size: 10pt; background: #fff; }
-        .pdf-resume .resume-header-title { text-align: center; font-size: 18pt; font-weight: bold; color: #000; text-transform: uppercase; margin: 0 0 15px 0; letter-spacing: 2px; }
-        .pdf-resume .personal-name { font-size: 20pt; font-weight: bold; color: #000; margin-bottom: 2px; }
-        .pdf-resume .personal-title { font-size: 11pt; font-style: normal; color: #1e3a8a; margin-bottom: 8px; font-weight: bold; }
-        .pdf-resume .contact-split { display: flex; justify-content: space-between; font-size: 10pt; margin-top: 5px; line-height: 1.4; color: #111; }
-        .pdf-resume .contact-left { width: 55%; }
-        .pdf-resume .contact-right { width: 45%; text-align: right; }
-        .pdf-resume .primary-hr { border: none; border-top: 1.5px solid #000; margin: 8px 0 15px 0; }
-        .pdf-resume .section-banner { background-color: #e0f2fe; color: #1e3a8a; padding: 5px 10px; font-size: 11pt; font-weight: bold; text-transform: uppercase; margin-top: 18px; margin-bottom: 10px; border-radius: 2px; letter-spacing: 0.5px; border: 1px solid #bae6fd; font-family: 'Segoe UI', sans-serif; }
-        .pdf-resume .section-text { font-size: 10pt; color: #111; margin-bottom: 12px; text-align: justify; line-height: 1.5; }
-        .pdf-resume .academic-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; border: 1.5px solid #000; }
-        .pdf-resume .academic-table th { background-color: #f1f5f9; color: #0f172a; font-weight: bold; font-size: 9.5pt; border: 1px solid #000; padding: 6px; text-align: left; }
-        .pdf-resume .academic-table td { font-size: 9.5pt; border: 1px solid #000; padding: 6px; color: #111; }
-        .pdf-resume .bullet-list { margin: 5px 0 12px 20px; padding: 0; list-style-type: disc; }
-        .pdf-resume .bullet-list li { font-size: 10pt; color: #111; margin-bottom: 5px; line-height: 1.4; }
-        .pdf-resume .info-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        .pdf-resume .info-table td { font-size: 10pt; padding: 3px 0; vertical-align: top; color: #111; }
-        .pdf-resume .info-label { width: 25%; font-weight: bold; }
-        .pdf-resume .info-colon { width: 5%; text-align: center; }
-        .pdf-resume .info-val { width: 70%; }
-        .pdf-resume .footer-signature { display: flex; justify-content: space-between; margin-top: 35px; font-size: 10pt; font-weight: bold; color: #111; }
+        .pdf-resume { font-family: 'Arial', sans-serif; padding: 0.45in 0.55in; color: #000000; line-height: 1.5; font-size: 10pt; background: #fff; }
+        .pdf-resume .resume-header-title { text-align: center; font-size: 18pt; font-weight: bold; color: #000; text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 1.5px; font-family: 'Arial', sans-serif; }
+        .pdf-resume .personal-name { font-size: 16pt; font-weight: bold; color: #000000; margin-bottom: 2px; }
+        .pdf-resume .personal-title { font-size: 11pt; font-style: normal; color: #000000; margin-bottom: 6px; font-weight: bold; }
+        .pdf-resume .contact-split { display: flex; justify-content: space-between; font-size: 9.5pt; margin-top: 5px; line-height: 1.5; color: #000000; }
+        .pdf-resume .contact-left { width: 55%; font-size: 9.5pt; line-height: 1.4; }
+        .pdf-resume .contact-right { width: 45%; text-align: left; font-size: 9.5pt; line-height: 1.4; padding-left: 20px; }
+        .pdf-resume .primary-hr { border: none; border-top: 1.2px solid #000000; margin: 8px 0 12px 0; }
+        .pdf-resume .section-banner { background-color: #E2E8F0; color: #000000; padding: 4px 8px; font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin-top: 14px; margin-bottom: 8px; border-radius: 0px; letter-spacing: 0.5px; font-family: 'Arial', sans-serif; }
+        .pdf-resume .section-text { font-size: 9.5pt; color: #000000; margin-bottom: 8px; text-align: justify; line-height: 1.5; }
+        .pdf-resume .academic-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; border: 1px solid #94a3b8; }
+        .pdf-resume .academic-table th { background-color: #fff; color: #000000; font-weight: bold; font-size: 9.5pt; border: 1px solid #94a3b8; padding: 6px; text-align: left; }
+        .pdf-resume .academic-table td { font-size: 9.5pt; border: 1px solid #94a3b8; padding: 6px; color: #000000; }
+        .pdf-resume .bullet-list { margin: 4px 0 8px 16px; padding: 0; list-style-type: disc; }
+        .pdf-resume .bullet-list li { font-size: 9.5pt; color: #000000; margin-bottom: 4px; line-height: 1.4; }
+        .pdf-resume .info-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        .pdf-resume .info-table td { font-size: 9.5pt; padding: 4px 0; vertical-align: top; color: #000000; }
+        .pdf-resume .info-label { width: 28%; font-weight: bold; }
+        .pdf-resume .info-colon { width: 4%; text-align: center; font-weight: bold; }
+        .pdf-resume .info-val { width: 68%; }
+        .pdf-resume .footer-signature { display: flex; justify-content: space-between; margin-top: 30px; font-size: 9.5pt; font-weight: bold; color: #000000; }
       `;
     } else if (template === 'ats-professional') {
       templateCss = `
@@ -691,33 +718,31 @@ export default function AiResumeBuilder() {
       bodyContent = `
         <div class="pdf-resume animate-fadeIn">
           <div class="resume-header-title">RESUME</div>
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
             <div style="flex: 1; min-width: 0; padding-right: 15px;">
               <div class="personal-name">${personal.name || 'Your Name'}</div>
-              <div class="personal-title">${personal.title || 'Target Role'}</div>
+              <div class="personal-title">${personal.title || 'Target Role / Title'}</div>
               
               <div class="contact-split">
                 <div class="contact-left">
-                  ${personal.location ? `<strong>Address:</strong><br/>${personal.location.replace(/\n/g, '<br/>')}` : ''}
+                  <strong>Address:</strong><br/>${(personal.location || '').replace(/\n/g, '<br/>') || 'Your Full Address Here'}
                 </div>
-                <div class="contact-right">
-                  ${personal.phone ? `<strong>Mob No.:</strong> ${personal.phone}<br/>` : ''}
-                  ${personal.email ? `<strong>Email Id:</strong> ${personal.email}` : ''}
+                <div class="contact-right" style="padding-left: 15px;">
+                  <strong>Mob No.:</strong> ${personal.phone || 'Your Phone Number'}<br/>
+                  <strong>Email Id:</strong> ${personal.email || 'your.email@example.com'}
                 </div>
               </div>
             </div>
             ${profileImage ? `
-              <div style="width: 1.05in; height: 1.3in; border: 1.5px solid #000; padding: 1.5px; text-align: center; background-color: #fff; flex-shrink: 0; margin-left: 15px; margin-top: 5px;">
+              <div style="width: 1.05in; height: 1.3in; border: 1px solid #000; padding: 1.5px; text-align: center; background-color: #fff; flex-shrink: 0; margin-left: 15px;">
                 <img src="${profileImage}" style="width: 100%; height: 100%; object-fit: cover;" />
               </div>
             ` : ''}
           </div>
           <hr class="primary-hr" />
 
-          ${objective ? `
-            <div class="section-banner">Career Objective</div>
-            <div class="section-text" style="white-space: pre-wrap;">${objective}</div>
-          ` : ''}
+          <div class="section-banner">Career Objective</div>
+          <div class="section-text" style="white-space: pre-wrap;">${objective || 'Seeking a professional position where I can utilize my skills, gain practical experience, and contribute to company growth through sincere and responsible work.'}</div>
 
           <div class="section-banner">Academic Qualification</div>
           <table class="academic-table">
@@ -731,52 +756,64 @@ export default function AiResumeBuilder() {
               </tr>
             </thead>
             <tbody>
-              ${education.map((edu, idx) => `
+              ${education.length > 0 && education.some(edu => edu.degree.trim() || edu.school.trim()) ? education.filter(edu => edu.degree.trim() || edu.school.trim()).map((edu, idx) => `
                 <tr>
                   <td style="text-align: center;">${idx + 1}</td>
-                  <td>${edu.degree}</td>
-                  <td>${edu.school}</td>
-                  <td style="text-align: center;">${edu.year}</td>
-                  <td style="text-align: center;">${edu.gpa}</td>
+                  <td>${edu.degree || 'Degree / Course'}</td>
+                  <td>${edu.school || 'School / College / University'}</td>
+                  <td style="text-align: center;">${edu.year || 'Year'}</td>
+                  <td style="text-align: center;">${edu.gpa || 'Grade / %'}</td>
                 </tr>
-              `).join('')}
+              `).join('') : `
+                <tr>
+                  <td style="text-align: center;">1</td>
+                  <td>Degree / Qualification Name</td>
+                  <td>Board / University / School Name</td>
+                  <td style="text-align: center;">YYYY</td>
+                  <td style="text-align: center;">Grade / %</td>
+                </tr>
+              `}
             </tbody>
           </table>
 
-          ${skills.technical || skills.soft ? `
-            <div class="section-banner">Other Qualification</div>
-            <ul class="bullet-list">
-              ${skills.technical ? `<li>${skills.technical}</li>` : ''}
-              ${skills.soft ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : ''}
-            </ul>
-          ` : ''}
+          <div class="section-banner">Other Qualification</div>
+          <ul class="bullet-list">
+            ${skills.technical ? `<li>${skills.technical}</li>` : `<li>Computer Applications or Technical Certification Name (e.g., ADCA, Office Suites)</li>`}
+            ${skills.soft ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : `<li>Professional communication, active problem-solving, and team collaboration.</li>`}
+          </ul>
 
-          ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? `
-            <div class="section-banner">Work Experience</div>
-            <ul class="bullet-list">
-              ${experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
+          <div class="section-banner">Work Experience</div>
+          <ul class="bullet-list">
+            ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? 
+              experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
                 <li><strong>${exp.role}</strong> at <strong>${exp.company}</strong> (${exp.duration})${exp.details ? `<br/><em>${exp.details}</em>` : ''}</li>
-              `).join('')}
-            </ul>
-          ` : ''}
+              `).join('') : `
+                <li><strong>Job Position / Title</strong> at <strong>Company Name</strong> (Duration - Present/Dates)</li>
+              `
+            }
+          </ul>
 
-          ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? `
-            <div class="section-banner">Key Projects &amp; Products</div>
-            <ul class="bullet-list">
-              ${projects.filter(proj => proj.title.trim()).map(proj => `
+          <div class="section-banner">Key Projects &amp; Products</div>
+          <ul class="bullet-list">
+            ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? 
+              projects.filter(proj => proj.title.trim()).map(proj => `
                 <li><strong>${proj.title}</strong> ${proj.tech ? `[${proj.tech}]` : ''} ${proj.details ? `<br/><em>${proj.details}</em>` : ''}</li>
-              `).join('')}
-            </ul>
-          ` : ''}
+              `).join('') : `
+                <li><strong>Project / Automation Title</strong> [Technologies Used] <br/><em>Short description of work, achievements or key features designed.</em></li>
+              `
+            }
+          </ul>
 
-          ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? `
-            <div class="section-banner">Certifications &amp; Achievements</div>
-            <ul class="bullet-list">
-              ${certs.filter(c => c.name.trim()).map(c => `
+          <div class="section-banner">Certifications &amp; Achievements</div>
+          <ul class="bullet-list">
+            ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? 
+              certs.filter(c => c.name.trim()).map(c => `
                 <li><strong>${c.name}</strong>${c.issuer ? ` - Issued by <em>${c.issuer}</em>` : ''}${c.year ? ` (${c.year})` : ''}</li>
-              `).join('')}
-            </ul>
-          ` : ''}
+              `).join('') : `
+                <li><strong>Certification / Award Name</strong> - Issued by <em>Organization / Academy</em> (Year)</li>
+              `
+            }
+          </ul>
 
           <div class="section-banner">Personal Information</div>
           <table class="info-table">
@@ -784,44 +821,47 @@ export default function AiResumeBuilder() {
               <tr>
                 <td class="info-label">Father's Name</td>
                 <td class="info-colon">:</td>
-                <td class="info-val">${personal.fatherName || 'Not Specified'}</td>
+                <td class="info-val">${personal.fatherName || "Father's Name"}</td>
               </tr>
               <tr>
                 <td class="info-label">Date of Birth</td>
                 <td class="info-colon">:</td>
-                <td class="info-val">${personal.dob || 'Not Specified'}</td>
+                <td class="info-val">${personal.dob || 'YYYY-MM-DD'}</td>
               </tr>
               <tr>
                 <td class="info-label">Language Known</td>
                 <td class="info-colon">:</td>
-                <td class="info-val">${personal.languages || 'Not Specified'}</td>
+                <td class="info-val">${personal.languages || 'Languages Known'}</td>
               </tr>
               <tr>
                 <td class="info-label">Gender</td>
                 <td class="info-colon">:</td>
-                <td class="info-val">${personal.gender || 'Not Specified'}</td>
+                <td class="info-val">${personal.gender || 'Your Gender'}</td>
               </tr>
               <tr>
                 <td class="info-label">Nationality</td>
                 <td class="info-colon">:</td>
-                <td class="info-val">${personal.nationality || 'Not Specified'}</td>
+                <td class="info-val">${personal.nationality || 'Your Nationality'}</td>
               </tr>
               <tr>
                 <td class="info-label">Marital Status</td>
                 <td class="info-colon">:</td>
-                <td class="info-val">${personal.maritalStatus || 'Not Specified'}</td>
+                <td class="info-val">${personal.maritalStatus || 'Single / Married'}</td>
               </tr>
             </tbody>
           </table>
 
-          ${personal.declaration ? `
-            <div class="section-banner">Declaration</div>
-            <div class="section-text" style="white-space: pre-wrap;">${personal.declaration}</div>
-          ` : ''}
+          <div class="section-banner">Declaration</div>
+          <div class="section-text" style="white-space: pre-wrap;">${personal.declaration || 'I hereby declare that the above information given by me is true to the best of my knowledge.'}</div>
 
-          <div class="footer-signature">
-            <div>Date :</div>
-            <div style="margin-right: 30px;">(${personal.name})</div>
+          <div class="footer-signature" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-weight: bold;">
+            <div style="text-align: left; line-height: 1.6;">
+              <div>Date : </div>
+              <div>Place : ${personal.location ? personal.location.split(',').pop()?.replace(/[\d\-\s]+$/, '').trim() || 'Your City' : 'Your City'}</div>
+            </div>
+            <div style="text-align: right; margin-right: 30px;">
+              (${personal.name || 'Your Name'})
+            </div>
           </div>
         </div>
       `;
