@@ -61,7 +61,8 @@ import {
   Calendar,
   Pipette,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  GripVertical
 } from 'lucide-react';
 
 const iconsMap: Record<string, any> = {
@@ -127,7 +128,8 @@ const iconsMap: Record<string, any> = {
   Calendar,
   Pipette,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  GripVertical
 };
 
 interface LucideIconProps {

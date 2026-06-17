@@ -74,7 +74,7 @@ export default function AiResumeBuilder() {
     gender: '',
     nationality: '',
     maritalStatus: '',
-    declaration: 'I hereby declare that the above information given by me is true to the best of my knowledge.',
+    declaration: '',
   });
 
   const [objective, setObjective] = useState('');
@@ -221,9 +221,7 @@ export default function AiResumeBuilder() {
         .resume-header-title { text-align: center; font-size: 18pt; font-weight: bold; color: #000; text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 1.5px; font-family: 'Arial', sans-serif; }
         .personal-name { font-size: 16pt; font-weight: bold; color: #000000; margin-bottom: 2px; }
         .personal-title { font-size: 11pt; font-style: normal; color: #000000; margin-bottom: 6px; font-weight: bold; }
-        .contact-split { display: flex; justify-content: space-between; font-size: 9.5pt; margin-top: 5px; line-height: 1.5; color: #000000; }
-        .contact-left { width: 55%; font-size: 9.5pt; line-height: 1.4; }
-        .contact-right { width: 45%; text-align: left; font-size: 9.5pt; line-height: 1.4; padding-left: 20px; }
+        .contact-split { display: flex; flex-direction: column; gap: 2.5px; font-size: 9.5pt; margin-top: 5px; line-height: 1.4; color: #000000; }
         .primary-hr { border: none; border-top: 1.2px solid #000000; margin: 8px 0 12px 0; }
         .section-banner { background-color: #E2E8F0; color: #000000; padding: 4px 8px; font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin-top: 14px; margin-bottom: 8px; border-radius: 0px; letter-spacing: 0.5px; font-family: 'Arial', sans-serif; }
         .section-text { font-size: 9.5pt; color: #000000; margin-bottom: 8px; text-align: justify; line-height: 1.5; }
@@ -299,19 +297,15 @@ export default function AiResumeBuilder() {
     if (template === 'traditional-format') {
       bodyContent = `
         <div class="resume-header-title">RESUME</div>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
           <div style="flex: 1; min-width: 0; padding-right: 15px;">
             <div class="personal-name">${personal.name || 'Your Name'}</div>
             <div class="personal-title">${personal.title || 'Target Role / Title'}</div>
             
             <div class="contact-split">
-              <div class="contact-left">
-                <strong>Address:</strong><br/>${(personal.location || '').replace(/\n/g, '<br/>') || 'Your Full Address Here'}
-              </div>
-              <div class="contact-right" style="padding-left: 15px;">
-                <strong>Mob No.:</strong> ${personal.phone || 'Your Phone Number'}<br/>
-                <strong>Email Id:</strong> ${personal.email || 'your.email@example.com'}
-              </div>
+              ${personal.phone ? `<div><strong>Mob No.:</strong> ${personal.phone}</div>` : ''}
+              ${personal.email ? `<div><strong>Email Id:</strong> ${personal.email}</div>` : ''}
+              ${personal.location ? `<div><strong>Address:</strong> ${(personal.location).replace(/\n/g, ', ')}</div>` : ''}
             </div>
           </div>
           ${profileImage ? `
@@ -320,130 +314,190 @@ export default function AiResumeBuilder() {
             </div>
           ` : ''}
         </div>
+        ${(personal.linkedin || personal.github || personal.portfolio || personal.twitter) ? `
+          <div class="contact-social" style="text-align: center; margin-top: 10px; margin-bottom: 8px; width: 100%;">
+            ${personal.linkedin ? `
+              <a href="${personal.linkedin.startsWith('http') ? personal.linkedin : 'https://' + personal.linkedin}" target="_blank" style="display: inline-block; text-decoration: none; margin: 0 10px; vertical-align: middle;">
+                <table style="display: inline-table; border-collapse: collapse; border: none; padding: 0; margin: 0; vertical-align: middle;">
+                  <tr>
+                    <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1;">
+                      <svg style="width: 13px; height: 13px; fill: #0a66c2; display: block; overflow: visible; margin-right: 4px;" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                    </td>
+                    <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1; font-family: 'Arial', sans-serif; font-size: 9pt; font-weight: bold; color: #1e3a8a;">LinkedIn</td>
+                  </tr>
+                </table>
+              </a>
+            ` : ''}
+            ${personal.github ? `
+              <a href="${personal.github.startsWith('http') ? personal.github : 'https://' + personal.github}" target="_blank" style="display: inline-block; text-decoration: none; margin: 0 10px; vertical-align: middle;">
+                <table style="display: inline-table; border-collapse: collapse; border: none; padding: 0; margin: 0; vertical-align: middle;">
+                  <tr>
+                    <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1;">
+                      <svg style="width: 13px; height: 13px; fill: #24292e; display: block; overflow: visible; margin-right: 4px;" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    </td>
+                    <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1; font-family: 'Arial', sans-serif; font-size: 9pt; font-weight: bold; color: #1e3a8a;">GitHub</td>
+                  </tr>
+                </table>
+              </a>
+            ` : ''}
+            ${personal.portfolio ? `
+              <a href="${personal.portfolio.startsWith('http') ? personal.portfolio : 'https://' + personal.portfolio}" target="_blank" style="display: inline-block; text-decoration: none; margin: 0 10px; vertical-align: middle;">
+                <table style="display: inline-table; border-collapse: collapse; border: none; padding: 0; margin: 0; vertical-align: middle;">
+                  <tr>
+                    <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1;">
+                      <svg style="width: 13px; height: 13px; fill: none; stroke: #2563eb; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; overflow: visible; margin-right: 4px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    </td>
+                    <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1; font-family: 'Arial', sans-serif; font-size: 9pt; font-weight: bold; color: #1e3a8a;">Portfolio</td>
+                  </tr>
+                </table>
+              </a>
+            ` : ''}
+            ${personal.twitter ? `
+              <a href="${personal.twitter.startsWith('http') ? personal.twitter : 'https://' + personal.twitter}" target="_blank" style="display: inline-block; text-decoration: none; margin: 0 10px; vertical-align: middle;">
+                <table style="display: inline-table; border-collapse: collapse; border: none; padding: 0; margin: 0; vertical-align: middle;">
+                  <tr>
+                    <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1;">
+                      <svg style="width: 13px; height: 13px; fill: #000000; display: block; overflow: visible; margin-right: 4px;" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    </td>
+                    <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1; font-family: 'Arial', sans-serif; font-size: 9pt; font-weight: bold; color: #1e3a8a;">Twitter/X</td>
+                  </tr>
+                </table>
+              </a>
+            ` : ''}
+          </div>
+        ` : ''}
         <hr class="primary-hr" />
 
-        <div class="section-banner">Career Objective</div>
-        <div class="section-text" style="white-space: pre-wrap;">${objective || 'Seeking a professional position where I can utilize my skills, gain practical experience, and contribute to company growth through sincere and responsible work.'}</div>
+        ${objective ? `
+          <div class="section-banner">Career Objective</div>
+          <div class="section-text" style="white-space: pre-wrap;">${objective}</div>
+        ` : ''}
 
-        <div class="section-banner">Academic Qualification</div>
-        <table class="academic-table">
-          <thead>
-            <tr>
-              <th style="text-align: center; width: 8%;">S.No.</th>
-              <th style="width: 32%;">Qualification</th>
-              <th style="width: 35%;">University / Board</th>
-              <th style="text-align: center; width: 12%;">Year</th>
-              <th style="text-align: center; width: 13%;">Per %</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${education.length > 0 && education.some(edu => edu.degree.trim() || edu.school.trim()) ? education.filter(edu => edu.degree.trim() || edu.school.trim()).map((edu, idx) => `
+        ${education.length > 0 && education.some(edu => edu.degree.trim() || edu.school.trim()) ? `
+          <div class="section-banner">Academic Qualification</div>
+          <table class="academic-table">
+            <thead>
               <tr>
-                <td style="text-align: center;">${idx + 1}</td>
-                <td>${edu.degree || 'Degree / Course'}</td>
-                <td>${edu.school || 'School / College / University'}</td>
-                <td style="text-align: center;">${edu.year || 'Year'}</td>
-                <td style="text-align: center;">${edu.gpa || 'Grade / %'}</td>
+                <th style="text-align: center; width: 8%;">S.No.</th>
+                <th style="width: 32%;">Qualification</th>
+                <th style="width: 35%;">University / Board</th>
+                <th style="text-align: center; width: 12%;">Year</th>
+                <th style="text-align: center; width: 13%;">Per %</th>
               </tr>
-            `).join('') : `
-              <tr>
-                <td style="text-align: center;">1</td>
-                <td>Degree / Qualification Name</td>
-                <td>Board / University / School Name</td>
-                <td style="text-align: center;">YYYY</td>
-                <td style="text-align: center;">Grade / %</td>
-              </tr>
-            `}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              ${education.filter(edu => edu.degree.trim() || edu.school.trim()).map((edu, idx) => `
+                <tr>
+                  <td style="text-align: center;">${idx + 1}</td>
+                  <td>${edu.degree}</td>
+                  <td>${edu.school}</td>
+                  <td style="text-align: center;">${edu.year || ''}</td>
+                  <td style="text-align: center;">${edu.gpa || ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : ''}
 
-        <div class="section-banner">Other Qualification</div>
-        <ul class="bullet-list">
-          ${skills.technical ? `<li>${skills.technical}</li>` : `<li>Computer Applications or Technical Certification Name (e.g., ADCA, Office Suites)</li>`}
-          ${skills.soft ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : `<li>Professional communication, active problem-solving, and team collaboration.</li>`}
-        </ul>
+        ${(skills.technical.trim() || skills.soft.trim()) ? `
+          <div class="section-banner">Skills</div>
+          <ul class="bullet-list">
+            ${skills.technical.trim() ? `<li>${skills.technical}</li>` : ''}
+            ${skills.soft.trim() ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : ''}
+          </ul>
+        ` : ''}
 
-        <div class="section-banner">Work Experience</div>
-        <ul class="bullet-list">
-          ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? 
-            experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
-              <li><strong>${exp.role}</strong> at <strong>${exp.company}</strong> (${exp.duration})${exp.details ? `<br/><em>${exp.details}</em>` : ''}</li>
-            `).join('') : `
-              <li><strong>Job Position / Title</strong> at <strong>Company Name</strong> (Duration - Present/Dates)</li>
-            `
-          }
-        </ul>
+        ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? `
+          <div class="section-banner">Work Experience</div>
+          <ul class="bullet-list">
+            ${experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
+              <li><strong>${exp.role}</strong> at <strong>${exp.company}</strong> (${exp.duration || ''})${exp.details ? `<br/><em>${exp.details}</em>` : ''}</li>
+            `).join('')}
+          </ul>
+        ` : ''}
 
-        <div class="section-banner">Key Projects &amp; Products</div>
-        <ul class="bullet-list">
-          ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? 
-            projects.filter(proj => proj.title.trim()).map(proj => `
+        ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? `
+          <div class="section-banner">Key Projects &amp; Products</div>
+          <ul class="bullet-list">
+            ${projects.filter(proj => proj.title.trim()).map(proj => `
               <li><strong>${proj.title}</strong> ${proj.tech ? `[${proj.tech}]` : ''} ${proj.details ? `<br/><em>${proj.details}</em>` : ''}</li>
-            `).join('') : `
-              <li><strong>Project / Automation Title</strong> [Technologies Used] <br/><em>Short description of work, achievements or key features designed.</em></li>
-            `
-          }
-        </ul>
+            `).join('')}
+          </ul>
+        ` : ''}
 
-        <div class="section-banner">Certifications &amp; Achievements</div>
-        <ul class="bullet-list">
-          ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? 
-            certs.filter(c => c.name.trim()).map(c => `
+        ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? `
+          <div class="section-banner">Certifications &amp; Achievements</div>
+          <ul class="bullet-list">
+            ${certs.filter(c => c.name.trim()).map(c => `
               <li><strong>${c.name}</strong>${c.issuer ? ` - Issued by <em>${c.issuer}</em>` : ''}${c.year ? ` (${c.year})` : ''}</li>
-            `).join('') : `
-              <li><strong>Certification / Award Name</strong> - Issued by <em>Organization / Academy</em> (Year)</li>
-            `
-          }
-        </ul>
+            `).join('')}
+          </ul>
+        ` : ''}
 
-        <div class="section-banner">Personal Information</div>
-        <table class="info-table">
-          <tbody>
-            <tr>
-              <td class="info-label">Father's Name</td>
-              <td class="info-colon">:</td>
-              <td class="info-val">${personal.fatherName || "Father's Name"}</td>
-            </tr>
-            <tr>
-              <td class="info-label">Date of Birth</td>
-              <td class="info-colon">:</td>
-              <td class="info-val">${personal.dob || 'YYYY-MM-DD'}</td>
-            </tr>
-            <tr>
-              <td class="info-label">Language Known</td>
-              <td class="info-colon">:</td>
-              <td class="info-val">${personal.languages || 'Languages Known'}</td>
-            </tr>
-            <tr>
-              <td class="info-label">Gender</td>
-              <td class="info-colon">:</td>
-              <td class="info-val">${personal.gender || 'Your Gender'}</td>
-            </tr>
-            <tr>
-              <td class="info-label">Nationality</td>
-              <td class="info-colon">:</td>
-              <td class="info-val">${personal.nationality || 'Your Nationality'}</td>
-            </tr>
-            <tr>
-              <td class="info-label">Marital Status</td>
-              <td class="info-colon">:</td>
-              <td class="info-val">${personal.maritalStatus || 'Single / Married'}</td>
-            </tr>
-          </tbody>
-        </table>
+        ${(personal.fatherName.trim() || personal.dob.trim() || personal.languages.trim() || personal.gender.trim() || personal.nationality.trim() || personal.maritalStatus.trim()) ? `
+          <div class="section-banner">Personal Information</div>
+          <table class="info-table">
+            <tbody>
+              ${personal.fatherName.trim() ? `
+                <tr>
+                  <td class="info-label">Father's Name</td>
+                  <td class="info-colon">:</td>
+                  <td class="info-val">${personal.fatherName}</td>
+                </tr>
+              ` : ''}
+              ${personal.dob.trim() ? `
+                <tr>
+                  <td class="info-label">Date of Birth</td>
+                  <td class="info-colon">:</td>
+                  <td class="info-val">${personal.dob}</td>
+                </tr>
+              ` : ''}
+              ${personal.languages.trim() ? `
+                <tr>
+                  <td class="info-label">Language Known</td>
+                  <td class="info-colon">:</td>
+                  <td class="info-val">${personal.languages}</td>
+                </tr>
+              ` : ''}
+              ${personal.gender.trim() ? `
+                <tr>
+                  <td class="info-label">Gender</td>
+                  <td class="info-colon">:</td>
+                  <td class="info-val">${personal.gender}</td>
+                </tr>
+              ` : ''}
+              ${personal.nationality.trim() ? `
+                <tr>
+                  <td class="info-label">Nationality</td>
+                  <td class="info-colon">:</td>
+                  <td class="info-val">${personal.nationality}</td>
+                </tr>
+              ` : ''}
+              ${personal.maritalStatus.trim() ? `
+                <tr>
+                  <td class="info-label">Marital Status</td>
+                  <td class="info-colon">:</td>
+                  <td class="info-val">${personal.maritalStatus}</td>
+                </tr>
+              ` : ''}
+            </tbody>
+          </table>
+        ` : ''}
 
-        <div class="section-banner">Declaration</div>
-        <div class="section-text" style="white-space: pre-wrap;">${personal.declaration || 'I hereby declare that the above information given by me is true to the best of my knowledge.'}</div>
+        ${personal.declaration.trim() ? `
+          <div class="section-banner">Declaration</div>
+          <div class="section-text" style="white-space: pre-wrap;">${personal.declaration}</div>
 
-        <div class="footer-signature" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-weight: bold;">
-          <div style="text-align: left; line-height: 1.6;">
-            <div>Date : </div>
-            <div>Place : ${personal.location ? personal.location.split(',').pop()?.replace(/[\d\-\s]+$/, '').trim() || 'Your City' : 'Your City'}</div>
+          <div class="footer-signature" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-weight: bold;">
+            <div style="text-align: left; line-height: 1.6;">
+              <div>Date : </div>
+              <div>Place : ${personal.location ? personal.location.split(',').pop()?.replace(/[\d\-\s]+$/, '').trim() || 'Your City' : 'Your City'}</div>
+            </div>
+            <div style="text-align: right; margin-right: 30px;">
+              (${personal.name || 'Your Name'})
+            </div>
           </div>
-          <div style="text-align: right; margin-right: 30px;">
-            (${personal.name || 'Your Name'})
-          </div>
-        </div>
+        ` : ''}
       `;
     } else if (template !== 'developer') {
       bodyContent = `
@@ -451,10 +505,10 @@ export default function AiResumeBuilder() {
         <div class="subtitle">${personal.title}</div>
         <div class="contact-bar">
           <span>${personal.email}</span> | <span>${personal.phone}</span> | <span>${personal.location}</span>
-          ${personal.linkedin ? ` | <span>LinkedIn: ${personal.linkedin}</span>` : ''}
-          ${personal.github ? ` | <span>GitHub: ${personal.github}</span>` : ''}
-          ${personal.twitter ? ` | <span>X: ${personal.twitter}</span>` : ''}
-          ${personal.portfolio ? ` | <span>Web: ${personal.portfolio}</span>` : ''}
+          ${personal.linkedin ? ` | <a href="${personal.linkedin.startsWith('http') ? personal.linkedin : 'https://' + personal.linkedin}" target="_blank" style="color: inherit; text-decoration: none;">LinkedIn: ${personal.linkedin}</a>` : ''}
+          ${personal.github ? ` | <a href="${personal.github.startsWith('http') ? personal.github : 'https://' + personal.github}" target="_blank" style="color: inherit; text-decoration: none;">GitHub: ${personal.github}</a>` : ''}
+          ${personal.twitter ? ` | <a href="${personal.twitter.startsWith('http') ? personal.twitter : 'https://' + personal.twitter}" target="_blank" style="color: inherit; text-decoration: none;">X: ${personal.twitter}</a>` : ''}
+          ${personal.portfolio ? ` | <a href="${personal.portfolio.startsWith('http') ? personal.portfolio : 'https://' + personal.portfolio}" target="_blank" style="color: inherit; text-decoration: none;">Web: ${personal.portfolio}</a>` : ''}
         </div>
 
         ${objective ? `
@@ -525,10 +579,10 @@ export default function AiResumeBuilder() {
           <div class="contact-bar">
             <span>Email: ${personal.email}</span> | <span>Cell: ${personal.phone}</span> | <span>Loc: ${personal.location}</span><br/>
             ${[
-              personal.linkedin ? `<span>LinkedIn: ${personal.linkedin}</span>` : '',
-              personal.github ? `<span>GitHub: ${personal.github}</span>` : '',
-              personal.twitter ? `<span>X: ${personal.twitter}</span>` : '',
-              personal.portfolio ? `<span>Web: ${personal.portfolio}</span>` : ''
+              personal.linkedin ? `<a href="${personal.linkedin.startsWith('http') ? personal.linkedin : 'https://' + personal.linkedin}" target="_blank" style="color: inherit; text-decoration: none;">LinkedIn: ${personal.linkedin}</a>` : '',
+              personal.github ? `<a href="${personal.github.startsWith('http') ? personal.github : 'https://' + personal.github}" target="_blank" style="color: inherit; text-decoration: none;">GitHub: ${personal.github}</a>` : '',
+              personal.twitter ? `<a href="${personal.twitter.startsWith('http') ? personal.twitter : 'https://' + personal.twitter}" target="_blank" style="color: inherit; text-decoration: none;">X: ${personal.twitter}</a>` : '',
+              personal.portfolio ? `<a href="${personal.portfolio.startsWith('http') ? personal.portfolio : 'https://' + personal.portfolio}" target="_blank" style="color: inherit; text-decoration: none;">Web: ${personal.portfolio}</a>` : ''
             ].filter(Boolean).join(' | ')}
           </div>
         </div>
@@ -641,9 +695,7 @@ export default function AiResumeBuilder() {
         .pdf-resume .resume-header-title { text-align: center; font-size: 18pt; font-weight: bold; color: #000; text-transform: uppercase; margin: 0 0 12px 0; letter-spacing: 1.5px; font-family: 'Arial', sans-serif; }
         .pdf-resume .personal-name { font-size: 16pt; font-weight: bold; color: #000000; margin-bottom: 2px; }
         .pdf-resume .personal-title { font-size: 11pt; font-style: normal; color: #000000; margin-bottom: 6px; font-weight: bold; }
-        .pdf-resume .contact-split { display: flex; justify-content: space-between; font-size: 9.5pt; margin-top: 5px; line-height: 1.5; color: #000000; }
-        .pdf-resume .contact-left { width: 55%; font-size: 9.5pt; line-height: 1.4; }
-        .pdf-resume .contact-right { width: 45%; text-align: left; font-size: 9.5pt; line-height: 1.4; padding-left: 20px; }
+        .pdf-resume .contact-split { display: flex; flex-direction: column; gap: 2.5px; font-size: 9.5pt; margin-top: 5px; line-height: 1.4; color: #000000; }
         .pdf-resume .primary-hr { border: none; border-top: 1.2px solid #000000; margin: 8px 0 12px 0; }
         .pdf-resume .section-banner { background-color: #E2E8F0; color: #000000; padding: 4px 8px; font-size: 10.5pt; font-weight: bold; text-transform: uppercase; margin-top: 14px; margin-bottom: 8px; border-radius: 0px; letter-spacing: 0.5px; font-family: 'Arial', sans-serif; }
         .pdf-resume .section-text { font-size: 9.5pt; color: #000000; margin-bottom: 8px; text-align: justify; line-height: 1.5; }
@@ -718,19 +770,15 @@ export default function AiResumeBuilder() {
       bodyContent = `
         <div class="pdf-resume animate-fadeIn">
           <div class="resume-header-title">RESUME</div>
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
             <div style="flex: 1; min-width: 0; padding-right: 15px;">
               <div class="personal-name">${personal.name || 'Your Name'}</div>
               <div class="personal-title">${personal.title || 'Target Role / Title'}</div>
               
               <div class="contact-split">
-                <div class="contact-left">
-                  <strong>Address:</strong><br/>${(personal.location || '').replace(/\n/g, '<br/>') || 'Your Full Address Here'}
-                </div>
-                <div class="contact-right" style="padding-left: 15px;">
-                  <strong>Mob No.:</strong> ${personal.phone || 'Your Phone Number'}<br/>
-                  <strong>Email Id:</strong> ${personal.email || 'your.email@example.com'}
-                </div>
+                ${personal.phone ? `<div><strong>Mob No.:</strong> ${personal.phone}</div>` : ''}
+                ${personal.email ? `<div><strong>Email Id:</strong> ${personal.email}</div>` : ''}
+                ${personal.location ? `<div><strong>Address:</strong> ${(personal.location).replace(/\n/g, ', ')}</div>` : ''}
               </div>
             </div>
             ${profileImage ? `
@@ -739,130 +787,190 @@ export default function AiResumeBuilder() {
               </div>
             ` : ''}
           </div>
+          ${(personal.linkedin || personal.github || personal.portfolio || personal.twitter) ? `
+            <div class="contact-social" style="text-align: center; margin-top: 10px; margin-bottom: 8px; width: 100%;">
+              ${personal.linkedin ? `
+                <a href="${personal.linkedin.startsWith('http') ? personal.linkedin : 'https://' + personal.linkedin}" target="_blank" style="display: inline-block; text-decoration: none; margin: 0 10px; vertical-align: middle;">
+                  <table style="display: inline-table; border-collapse: collapse; border: none; padding: 0; margin: 0; vertical-align: middle;">
+                    <tr>
+                      <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1;">
+                        <svg style="width: 13px; height: 13px; fill: #0a66c2; display: block; overflow: visible; margin-right: 4px;" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                      </td>
+                      <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1; font-family: 'Arial', sans-serif; font-size: 9pt; font-weight: bold; color: #1e3a8a;">LinkedIn</td>
+                    </tr>
+                  </table>
+                </a>
+              ` : ''}
+              ${personal.github ? `
+                <a href="${personal.github.startsWith('http') ? personal.github : 'https://' + personal.github}" target="_blank" style="display: inline-block; text-decoration: none; margin: 0 10px; vertical-align: middle;">
+                  <table style="display: inline-table; border-collapse: collapse; border: none; padding: 0; margin: 0; vertical-align: middle;">
+                    <tr>
+                      <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1;">
+                        <svg style="width: 13px; height: 13px; fill: #24292e; display: block; overflow: visible; margin-right: 4px;" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                      </td>
+                      <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1; font-family: 'Arial', sans-serif; font-size: 9pt; font-weight: bold; color: #1e3a8a;">GitHub</td>
+                    </tr>
+                  </table>
+                </a>
+              ` : ''}
+              ${personal.portfolio ? `
+                <a href="${personal.portfolio.startsWith('http') ? personal.portfolio : 'https://' + personal.portfolio}" target="_blank" style="display: inline-block; text-decoration: none; margin: 0 10px; vertical-align: middle;">
+                  <table style="display: inline-table; border-collapse: collapse; border: none; padding: 0; margin: 0; vertical-align: middle;">
+                    <tr>
+                      <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1;">
+                        <svg style="width: 13px; height: 13px; fill: none; stroke: #2563eb; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; overflow: visible; margin-right: 4px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                      </td>
+                      <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1; font-family: 'Arial', sans-serif; font-size: 9pt; font-weight: bold; color: #1e3a8a;">Portfolio</td>
+                    </tr>
+                  </table>
+                </a>
+              ` : ''}
+              ${personal.twitter ? `
+                <a href="${personal.twitter.startsWith('http') ? personal.twitter : 'https://' + personal.twitter}" target="_blank" style="display: inline-block; text-decoration: none; margin: 0 10px; vertical-align: middle;">
+                  <table style="display: inline-table; border-collapse: collapse; border: none; padding: 0; margin: 0; vertical-align: middle;">
+                    <tr>
+                      <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1;">
+                        <svg style="width: 13px; height: 13px; fill: #000000; display: block; overflow: visible; margin-right: 4px;" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                      </td>
+                      <td style="padding: 0; margin: 0; vertical-align: middle; line-height: 1; font-family: 'Arial', sans-serif; font-size: 9pt; font-weight: bold; color: #1e3a8a;">Twitter/X</td>
+                    </tr>
+                  </table>
+                </a>
+              ` : ''}
+            </div>
+          ` : ''}
           <hr class="primary-hr" />
 
-          <div class="section-banner">Career Objective</div>
-          <div class="section-text" style="white-space: pre-wrap;">${objective || 'Seeking a professional position where I can utilize my skills, gain practical experience, and contribute to company growth through sincere and responsible work.'}</div>
+          ${objective ? `
+            <div class="section-banner">Career Objective</div>
+            <div class="section-text" style="white-space: pre-wrap;">${objective}</div>
+          ` : ''}
 
-          <div class="section-banner">Academic Qualification</div>
-          <table class="academic-table">
-            <thead>
-              <tr>
-                <th style="text-align: center; width: 8%;">S.No.</th>
-                <th style="width: 32%;">Qualification</th>
-                <th style="width: 35%;">University / Board</th>
-                <th style="text-align: center; width: 12%;">Year</th>
-                <th style="text-align: center; width: 13%;">Per %</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${education.length > 0 && education.some(edu => edu.degree.trim() || edu.school.trim()) ? education.filter(edu => edu.degree.trim() || edu.school.trim()).map((edu, idx) => `
+          ${education.length > 0 && education.some(edu => edu.degree.trim() || edu.school.trim()) ? `
+            <div class="section-banner">Academic Qualification</div>
+            <table class="academic-table">
+              <thead>
                 <tr>
-                  <td style="text-align: center;">${idx + 1}</td>
-                  <td>${edu.degree || 'Degree / Course'}</td>
-                  <td>${edu.school || 'School / College / University'}</td>
-                  <td style="text-align: center;">${edu.year || 'Year'}</td>
-                  <td style="text-align: center;">${edu.gpa || 'Grade / %'}</td>
+                  <th style="text-align: center; width: 8%;">S.No.</th>
+                  <th style="width: 32%;">Qualification</th>
+                  <th style="width: 35%;">University / Board</th>
+                  <th style="text-align: center; width: 12%;">Year</th>
+                  <th style="text-align: center; width: 13%;">Per %</th>
                 </tr>
-              `).join('') : `
-                <tr>
-                  <td style="text-align: center;">1</td>
-                  <td>Degree / Qualification Name</td>
-                  <td>Board / University / School Name</td>
-                  <td style="text-align: center;">YYYY</td>
-                  <td style="text-align: center;">Grade / %</td>
-                </tr>
-              `}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${education.filter(edu => edu.degree.trim() || edu.school.trim()).map((edu, idx) => `
+                  <tr>
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td>${edu.degree}</td>
+                    <td>${edu.school}</td>
+                    <td style="text-align: center;">${edu.year || ''}</td>
+                    <td style="text-align: center;">${edu.gpa || ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : ''}
 
-          <div class="section-banner">Other Qualification</div>
-          <ul class="bullet-list">
-            ${skills.technical ? `<li>${skills.technical}</li>` : `<li>Computer Applications or Technical Certification Name (e.g., ADCA, Office Suites)</li>`}
-            ${skills.soft ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : `<li>Professional communication, active problem-solving, and team collaboration.</li>`}
-          </ul>
+          ${(skills.technical.trim() || skills.soft.trim()) ? `
+            <div class="section-banner">Skills</div>
+            <ul class="bullet-list">
+              ${skills.technical.trim() ? `<li>${skills.technical}</li>` : ''}
+              ${skills.soft.trim() ? `<li><strong>Core Skills:</strong> ${skills.soft}</li>` : ''}
+            </ul>
+          ` : ''}
 
-          <div class="section-banner">Work Experience</div>
-          <ul class="bullet-list">
-            ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? 
-              experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
-                <li><strong>${exp.role}</strong> at <strong>${exp.company}</strong> (${exp.duration})${exp.details ? `<br/><em>${exp.details}</em>` : ''}</li>
-              `).join('') : `
-                <li><strong>Job Position / Title</strong> at <strong>Company Name</strong> (Duration - Present/Dates)</li>
-              `
-            }
-          </ul>
+          ${experience && experience.length > 0 && experience.some(exp => exp.role.trim() || exp.company.trim()) ? `
+            <div class="section-banner">Work Experience</div>
+            <ul class="bullet-list">
+              ${experience.filter(exp => exp.role.trim() || exp.company.trim()).map(exp => `
+                <li><strong>${exp.role}</strong> at <strong>${exp.company}</strong> (${exp.duration || ''})${exp.details ? `<br/><em>${exp.details}</em>` : ''}</li>
+              `).join('')}
+            </ul>
+          ` : ''}
 
-          <div class="section-banner">Key Projects &amp; Products</div>
-          <ul class="bullet-list">
-            ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? 
-              projects.filter(proj => proj.title.trim()).map(proj => `
+          ${projects && projects.length > 0 && projects.some(proj => proj.title.trim()) ? `
+            <div class="section-banner">Key Projects &amp; Products</div>
+            <ul class="bullet-list">
+              ${projects.filter(proj => proj.title.trim()).map(proj => `
                 <li><strong>${proj.title}</strong> ${proj.tech ? `[${proj.tech}]` : ''} ${proj.details ? `<br/><em>${proj.details}</em>` : ''}</li>
-              `).join('') : `
-                <li><strong>Project / Automation Title</strong> [Technologies Used] <br/><em>Short description of work, achievements or key features designed.</em></li>
-              `
-            }
-          </ul>
+              `).join('')}
+            </ul>
+          ` : ''}
 
-          <div class="section-banner">Certifications &amp; Achievements</div>
-          <ul class="bullet-list">
-            ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? 
-              certs.filter(c => c.name.trim()).map(c => `
+          ${certs && certs.length > 0 && certs.some(c => c.name.trim()) ? `
+            <div class="section-banner">Certifications &amp; Achievements</div>
+            <ul class="bullet-list">
+              ${certs.filter(c => c.name.trim()).map(c => `
                 <li><strong>${c.name}</strong>${c.issuer ? ` - Issued by <em>${c.issuer}</em>` : ''}${c.year ? ` (${c.year})` : ''}</li>
-              `).join('') : `
-                <li><strong>Certification / Award Name</strong> - Issued by <em>Organization / Academy</em> (Year)</li>
-              `
-            }
-          </ul>
+              `).join('')}
+            </ul>
+          ` : ''}
 
-          <div class="section-banner">Personal Information</div>
-          <table class="info-table">
-            <tbody>
-              <tr>
-                <td class="info-label">Father's Name</td>
-                <td class="info-colon">:</td>
-                <td class="info-val">${personal.fatherName || "Father's Name"}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Date of Birth</td>
-                <td class="info-colon">:</td>
-                <td class="info-val">${personal.dob || 'YYYY-MM-DD'}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Language Known</td>
-                <td class="info-colon">:</td>
-                <td class="info-val">${personal.languages || 'Languages Known'}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Gender</td>
-                <td class="info-colon">:</td>
-                <td class="info-val">${personal.gender || 'Your Gender'}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Nationality</td>
-                <td class="info-colon">:</td>
-                <td class="info-val">${personal.nationality || 'Your Nationality'}</td>
-              </tr>
-              <tr>
-                <td class="info-label">Marital Status</td>
-                <td class="info-colon">:</td>
-                <td class="info-val">${personal.maritalStatus || 'Single / Married'}</td>
-              </tr>
-            </tbody>
-          </table>
+          ${(personal.fatherName.trim() || personal.dob.trim() || personal.languages.trim() || personal.gender.trim() || personal.nationality.trim() || personal.maritalStatus.trim()) ? `
+            <div class="section-banner">Personal Information</div>
+            <table class="info-table">
+              <tbody>
+                ${personal.fatherName.trim() ? `
+                  <tr>
+                    <td class="info-label">Father's Name</td>
+                    <td class="info-colon">:</td>
+                    <td class="info-val">${personal.fatherName}</td>
+                  </tr>
+                ` : ''}
+                ${personal.dob.trim() ? `
+                  <tr>
+                    <td class="info-label">Date of Birth</td>
+                    <td class="info-colon">:</td>
+                    <td class="info-val">${personal.dob}</td>
+                  </tr>
+                ` : ''}
+                ${personal.languages.trim() ? `
+                  <tr>
+                    <td class="info-label">Language Known</td>
+                    <td class="info-colon">:</td>
+                    <td class="info-val">${personal.languages}</td>
+                  </tr>
+                ` : ''}
+                ${personal.gender.trim() ? `
+                  <tr>
+                    <td class="info-label">Gender</td>
+                    <td class="info-colon">:</td>
+                    <td class="info-val">${personal.gender}</td>
+                  </tr>
+                ` : ''}
+                ${personal.nationality.trim() ? `
+                  <tr>
+                    <td class="info-label">Nationality</td>
+                    <td class="info-colon">:</td>
+                    <td class="info-val">${personal.nationality}</td>
+                  </tr>
+                ` : ''}
+                ${personal.maritalStatus.trim() ? `
+                  <tr>
+                    <td class="info-label">Marital Status</td>
+                    <td class="info-colon">:</td>
+                    <td class="info-val">${personal.maritalStatus}</td>
+                  </tr>
+                ` : ''}
+              </tbody>
+            </table>
+          ` : ''}
 
-          <div class="section-banner">Declaration</div>
-          <div class="section-text" style="white-space: pre-wrap;">${personal.declaration || 'I hereby declare that the above information given by me is true to the best of my knowledge.'}</div>
+          ${personal.declaration.trim() ? `
+            <div class="section-banner">Declaration</div>
+            <div class="section-text" style="white-space: pre-wrap;">${personal.declaration}</div>
 
-          <div class="footer-signature" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-weight: bold;">
-            <div style="text-align: left; line-height: 1.6;">
-              <div>Date : </div>
-              <div>Place : ${personal.location ? personal.location.split(',').pop()?.replace(/[\d\-\s]+$/, '').trim() || 'Your City' : 'Your City'}</div>
+            <div class="footer-signature" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-weight: bold;">
+              <div style="text-align: left; line-height: 1.6;">
+                <div>Date : </div>
+                <div>Place : ${personal.location ? personal.location.split(',').pop()?.replace(/[\d\-\s]+$/, '').trim() || 'Your City' : 'Your City'}</div>
+              </div>
+              <div style="text-align: right; margin-right: 30px;">
+                (${personal.name || 'Your Name'})
+              </div>
             </div>
-            <div style="text-align: right; margin-right: 30px;">
-              (${personal.name || 'Your Name'})
-            </div>
-          </div>
+          ` : ''}
         </div>
       `;
     } else if (template !== 'developer') {
@@ -872,10 +980,10 @@ export default function AiResumeBuilder() {
           <div class="subtitle">${personal.title}</div>
           <div class="contact-bar">
             <span>${personal.email}</span> &nbsp;|&nbsp; <span>${personal.phone}</span> &nbsp;|&nbsp; <span>${personal.location}</span>
-            ${personal.linkedin ? ` &nbsp;|&nbsp; <span>LinkedIn: ${personal.linkedin}</span>` : ''}
-            ${personal.github ? ` &nbsp;|&nbsp; <span>GitHub: ${personal.github}</span>` : ''}
-            ${personal.twitter ? ` &nbsp;|&nbsp; <span>X: ${personal.twitter}</span>` : ''}
-            ${personal.portfolio ? ` &nbsp;|&nbsp; <span>Web: ${personal.portfolio}</span>` : ''}
+            ${personal.linkedin ? ` &nbsp;|&nbsp; <a href="${personal.linkedin.startsWith('http') ? personal.linkedin : 'https://' + personal.linkedin}" target="_blank" style="color: inherit; text-decoration: none;">LinkedIn: ${personal.linkedin}</a>` : ''}
+            ${personal.github ? ` &nbsp;|&nbsp; <a href="${personal.github.startsWith('http') ? personal.github : 'https://' + personal.github}" target="_blank" style="color: inherit; text-decoration: none;">GitHub: ${personal.github}</a>` : ''}
+            ${personal.twitter ? ` &nbsp;|&nbsp; <a href="${personal.twitter.startsWith('http') ? personal.twitter : 'https://' + personal.twitter}" target="_blank" style="color: inherit; text-decoration: none;">X: ${personal.twitter}</a>` : ''}
+            ${personal.portfolio ? ` &nbsp;|&nbsp; <a href="${personal.portfolio.startsWith('http') ? personal.portfolio : 'https://' + personal.portfolio}" target="_blank" style="color: inherit; text-decoration: none;">Web: ${personal.portfolio}</a>` : ''}
           </div>
 
           ${objective ? `
@@ -949,10 +1057,10 @@ export default function AiResumeBuilder() {
             <div class="contact-bar">
               <span>Email: ${personal.email}</span> | <span>Cell: ${personal.phone}</span> | <span>Loc: ${personal.location}</span><br/>
               ${[
-                personal.linkedin ? `<span>LinkedIn: ${personal.linkedin}</span>` : '',
-                personal.github ? `<span>GitHub: ${personal.github}</span>` : '',
-                personal.twitter ? `<span>X: ${personal.twitter}</span>` : '',
-                personal.portfolio ? `<span>Web: ${personal.portfolio}</span>` : ''
+                personal.linkedin ? `<a href="${personal.linkedin.startsWith('http') ? personal.linkedin : 'https://' + personal.linkedin}" target="_blank" style="color: inherit; text-decoration: none;">LinkedIn: ${personal.linkedin}</a>` : '',
+                personal.github ? `<a href="${personal.github.startsWith('http') ? personal.github : 'https://' + personal.github}" target="_blank" style="color: inherit; text-decoration: none;">GitHub: ${personal.github}</a>` : '',
+                personal.twitter ? `<a href="${personal.twitter.startsWith('http') ? personal.twitter : 'https://' + personal.twitter}" target="_blank" style="color: inherit; text-decoration: none;">X: ${personal.twitter}</a>` : '',
+                personal.portfolio ? `<a href="${personal.portfolio.startsWith('http') ? personal.portfolio : 'https://' + personal.portfolio}" target="_blank" style="color: inherit; text-decoration: none;">Web: ${personal.portfolio}</a>` : ''
               ].filter(Boolean).join(' | ')}
             </div>
           </div>
@@ -1419,7 +1527,17 @@ export default function AiResumeBuilder() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Declaration Statement</label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs font-semibold text-slate-705">Declaration Statement</label>
+                      <button
+                        type="button"
+                        onClick={() => setPersonal({ ...personal, declaration: 'I hereby declare that the above information given by me is true to the best of my knowledge.' })}
+                        className="text-[10px] text-indigo-600 dark:text-cyan-400 hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                        title="Click to insert standard declaration text"
+                      >
+                        <span>+ Fill Standard Declaration</span>
+                      </button>
+                    </div>
                     <textarea
                       value={personal.declaration || ''}
                       onChange={(e) => setPersonal({ ...personal, declaration: e.target.value })}
