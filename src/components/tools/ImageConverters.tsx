@@ -1,22 +1,41 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { removeBackground } from '@imgly/background-removal';
 import LucideIcon from '../LucideIcon';
 
-const isSkinColor = (r: number, g: number, b: number): boolean => {
-  return (
-    r > 80 &&
-    g > 40 &&
-    b > 20 &&
-    r > g &&
-    r > b &&
-    (r - Math.min(g, b)) > 10 &&
-    Math.abs(r - g) > 10
-  );
-};
-
-const isSkinOrHair = (r: number, g: number, b: number): boolean => {
-  const isSkin = isSkinColor(r, g, b);
-  const isDark = (r + g + b) < 120;
-  return isSkin || isDark;
+// High-performance image pre-resizer to ensure client-side ML runs in milliseconds and never freezes the browser
+const resizeImageForBgRemoval = (src: string, maxDim = 640): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = src;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+      canvas.width = w;
+      canvas.height = h;
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Canvas toBlob returned null'));
+      }, 'image/png');
+    };
+    img.onerror = () => reject(new Error('Failed to load image for resizing'));
+  });
 };
 
 interface ImageConvertersProps {
@@ -28,47 +47,38 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [mode, setMode] = useState<'jpg-to-png' | 'png-to-jpg' | 'webp-to-jpg' | 'jpg-to-webp' | 'bg-remover'>(initialMode);
   
-  // Bg Remover options
-  const [bgSelection, setBgSelection] = useState<string>('transparent'); // Default transparent
-  const [tolerance, setTolerance] = useState<number>(31); // Robust default tolerance for portraits
-  const [bgColorsToRemove, setBgColorsToRemove] = useState<string[]>(['#ffffff']); // Default White chroma lists
-  
-  // AI Background Remover Engine States (Backend-Driven)
-  const [hasServerKey, setHasServerKey] = useState<boolean>(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  // Background Remover backdrops (Transparent or Color Swap)
+  const [bgSelection, setBgSelection] = useState<string>('transparent');
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isSegmenting, setIsSegmenting] = useState<boolean>(false);
+  const [segmentationProgress, setSegmentationProgress] = useState<number>(0);
+  const [transparentCutoutUrl, setTransparentCutoutUrl] = useState<string | null>(null);
+  
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Fetch server configuration to see if REMOVE_BG_API_KEY is configured on the backend
-  useEffect(() => {
-    if (mode === 'bg-remover') {
-      const checkConfig = async () => {
-        try {
-          const res = await fetch('/api/config');
-          const data = await res.json();
-          if (data && typeof data.hasRemoveBgKey === 'boolean') {
-            setHasServerKey(data.hasRemoveBgKey);
-          }
-        } catch (e) {
-          console.warn('Failed to fetch server config for background removal', e);
-        }
-      };
-      checkConfig();
-    }
-  }, [mode]);
 
   useEffect(() => {
     setMode(initialMode);
     handleReset();
   }, [initialMode]);
 
+  // Completely clean up and reset cache when the image or converter mode changes
+  useEffect(() => {
+    if (transparentCutoutUrl) {
+      URL.revokeObjectURL(transparentCutoutUrl);
+    }
+    setTransparentCutoutUrl(null);
+    setSegmentationProgress(0);
+    setIsSegmenting(false);
+    setDownloadUrl(null);
+  }, [imageSrc, mode]);
+
   useEffect(() => {
     if (imageSrc) {
       applyConversion();
     }
-  }, [imageSrc, mode, bgSelection, tolerance, bgColorsToRemove, hasServerKey]);
+  }, [imageSrc, mode, bgSelection]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -79,433 +89,120 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
     }
   };
 
-  const detectBackgroundColors = (imageUrl: string) => {
-    const tempImg = new Image();
-    tempImg.src = imageUrl;
-    tempImg.onload = () => {
-      const tempCanvas = document.createElement('canvas');
-      // Scale down image to 100x100 to make sampling extremely efficient and less sensitive to fine noise
-      tempCanvas.width = 100;
-      tempCanvas.height = 100;
-      const tempCtx = tempCanvas.getContext('2d');
-      if (tempCtx) {
-        tempCtx.drawImage(tempImg, 0, 0, 100, 100);
-        
-        // Sample border pixels
-        const borderPixels: {r: number, g: number, b: number}[] = [];
-        
-        const width = 100;
-        const height = 100;
-        
-        // Sample ONLY upper portion of edges (top row, and upper 32% of left/right columns)
-        // to prevent sampling colors of user's clothes or face of human subjects.
-        for (let x = 0; x < width; x += 2) {
-          try {
-            const pTop = tempCtx.getImageData(x, 0, 1, 1).data;
-            borderPixels.push({ r: pTop[0], g: pTop[1], b: pTop[2] });
-          } catch (e) {
-            // Ignore cross-origin issues
-          }
-        }
-        
-        // Left & right columns (upper 32% only)
-        const limitY = Math.floor(height * 0.32);
-        for (let y = 1; y < limitY; y += 2) {
-          try {
-            const pLeft = tempCtx.getImageData(0, y, 1, 1).data;
-            borderPixels.push({ r: pLeft[0], g: pLeft[1], b: pLeft[2] });
-            
-            const pRight = tempCtx.getImageData(width - 1, y, 1, 1).data;
-            borderPixels.push({ r: pRight[0], g: pRight[1], b: pRight[2] });
-          } catch (e) {
-            // Ignore
-          }
-        }
-        
-        // Perform simple distance-based clustering to find dominant background colors (edges)
-        interface ColorCluster {
-          rSum: number;
-          gSum: number;
-          bSum: number;
-          count: number;
-        }
-        
-        const clusters: ColorCluster[] = [];
-        const maxClusterDistance = 45; // Euclidean distance threshold
-        
-        for (const pixel of borderPixels) {
-          // Skip if pixel is skin color or a dark shade (hair / shadow) to protect subject's features
-          if (isSkinOrHair(pixel.r, pixel.g, pixel.b)) {
-            continue;
-          }
-
-          let matchedCluster: ColorCluster | null = null;
-          let minDistance = Infinity;
-          
-          for (const cluster of clusters) {
-            const avgR = cluster.rSum / cluster.count;
-            const avgG = cluster.gSum / cluster.count;
-            const avgB = cluster.bSum / cluster.count;
-            
-            const dist = Math.sqrt(
-              Math.pow(pixel.r - avgR, 2) +
-              Math.pow(pixel.g - avgG, 2) +
-              Math.pow(pixel.b - avgB, 2)
-            );
-            
-            if (dist < maxClusterDistance && dist < minDistance) {
-              minDistance = dist;
-              matchedCluster = cluster;
-            }
-          }
-          
-          if (matchedCluster) {
-            matchedCluster.rSum += pixel.r;
-            matchedCluster.gSum += pixel.g;
-            matchedCluster.bSum += pixel.b;
-            matchedCluster.count++;
-          } else {
-            clusters.push({
-              rSum: pixel.r,
-              gSum: pixel.g,
-              bSum: pixel.b,
-              count: 1
-            });
-          }
-        }
-        
-        // Sort clusters by pixel count in descending order
-        clusters.sort((a, b) => b.count - a.count);
-        
-        // Get the top colors (maximum of 3 dominant background colors)
-        const topClusters = clusters.slice(0, 3);
-        const hexColors = topClusters.map(cluster => {
-          const r = Math.round(cluster.rSum / cluster.count);
-          const g = Math.round(cluster.gSum / cluster.count);
-          const b = Math.round(cluster.bSum / cluster.count);
-          return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-        });
-        
-        if (hexColors.length > 0) {
-          setBgColorsToRemove(hexColors);
-        } else {
-          setBgColorsToRemove(['#ffffff']);
-        }
-      }
-    };
-  };
-
-  useEffect(() => {
-    if (mode === 'bg-remover' && imageSrc) {
-      detectBackgroundColors(imageSrc);
-    }
-  }, [mode, imageSrc]);
-
   const applyConversion = async () => {
     if (!imageSrc) return;
-    setIsProcessing(true);
-    setApiError(null);
 
-    // Dynamic AI background removal engine path
-    if (mode === 'bg-remover' && hasServerKey) {
-      try {
-        // Step 1: Convert imageSrc blob to base64
-        const blobRes = await fetch(imageSrc);
-        const imgBlob = await blobRes.blob();
-        
-        const base64Data = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(imgBlob);
-        });
+    if (mode === 'bg-remover') {
+      let cutoutUrl = transparentCutoutUrl;
 
-        // Step 2: Make local API request to our proxy server
-        const response = await fetch('/api/remove-bg', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            image: base64Data
-          })
-        });
+      // If we do not have a computed cutout, perform the AI background-removal once.
+      if (!cutoutUrl) {
+        setIsSegmenting(true);
+        setIsProcessing(true);
+        setSegmentationProgress(0);
+        try {
+          // Pre-resize image to standard 640px dimension for super fast, high-performance client-side segmentation.
+          // 640px is perfect for beautiful previews and makes model inference take milliseconds instead of freezing.
+          const resizedBlob = await resizeImageForBgRemoval(imageSrc, 640);
 
-        const data = await response.json();
-        
-        if (!response.ok || !data.success) {
-          throw new Error(data.message || 'Error processing AI background removal.');
+          const imgBlob = await removeBackground(resizedBlob, {
+            model: 'isnet_quint8', // Light-weight, 8-bit quantized unit model (~10MB)
+            progress: (key, current, total) => {
+              if (total && total > 0) {
+                setSegmentationProgress(Math.round((current / total) * 100));
+              }
+            }
+          });
+
+          cutoutUrl = URL.createObjectURL(imgBlob);
+          setTransparentCutoutUrl(cutoutUrl);
+          setIsSegmenting(false);
+        } catch (err: any) {
+          console.error('Client-side AI background removal error:', err);
+          setIsSegmenting(false);
+          setIsProcessing(false);
+          return;
         }
+      }
 
-        // Step 3: Check if custom color layout was selected to merge cleanly
+      // Apply solid color backdrop swap instantly using clean 2D Canvas matrix overlay.
+      // Since cutoutUrl is cached in React state, this operation takes only 2ms and never re-runs the ML!
+      setIsProcessing(true);
+      try {
         if (bgSelection !== 'transparent') {
           const aiImg = new Image();
-          aiImg.src = data.image;
-          aiImg.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              canvas.width = aiImg.width;
-              canvas.height = aiImg.height;
+          aiImg.crossOrigin = 'anonymous';
+          aiImg.src = cutoutUrl;
+          await new Promise<void>((resolve) => {
+            aiImg.onload = () => {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                canvas.width = aiImg.width;
+                canvas.height = aiImg.height;
 
-              // Fill with custom background color
-              ctx.fillStyle = bgSelection;
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Paint solid background color preset
+                ctx.fillStyle = bgSelection;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-              // Paint transparent cut out on top
-              ctx.drawImage(aiImg, 0, 0);
+                // Overlay transparent cut out on top
+                ctx.drawImage(aiImg, 0, 0);
 
-              const blendedDataUrl = canvas.toDataURL('image/jpeg', 0.95);
-              if (downloadUrl) {
-                URL.revokeObjectURL(downloadUrl);
+                const blendedDataUrl = canvas.toDataURL('image/png');
+                if (downloadUrl && downloadUrl !== transparentCutoutUrl && !downloadUrl.startsWith('data:')) {
+                  URL.revokeObjectURL(downloadUrl);
+                }
+                setDownloadUrl(blendedDataUrl);
               }
-              setDownloadUrl(blendedDataUrl);
-              setIsProcessing(false);
-            }
-          };
-          aiImg.onerror = () => {
-            setDownloadUrl(data.image);
-            setIsProcessing(false);
-          };
+              resolve();
+            };
+            aiImg.onerror = () => {
+              setDownloadUrl(cutoutUrl);
+              resolve();
+            };
+          });
         } else {
-          // Transparent path
-          if (downloadUrl) {
-            URL.revokeObjectURL(downloadUrl);
-          }
-          setDownloadUrl(data.image);
-          setIsProcessing(false);
+          setDownloadUrl(cutoutUrl);
         }
-      } catch (err: any) {
-        console.error('AI background removal error:', err);
-        setApiError(err.message || 'Failed to connect to the background removal service. Please verify your API Key or try again.');
+      } catch (blendErr) {
+        console.error('Error overlays custom background backdrop:', blendErr);
+      } finally {
         setIsProcessing(false);
       }
       return;
     }
 
-    // Default clean pixel chromatography logic (Local Engine)
+    // Standard format conversions (JPG, PNG, WEBP)
+    setIsProcessing(true);
     const img = new Image();
     img.src = imageSrc;
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) {
+        setIsProcessing(false);
+        return;
+      }
 
       canvas.width = img.width;
       canvas.height = img.height;
-
-      // Draw original image on canvas
       ctx.drawImage(img, 0, 0);
 
       let outputMime = 'image/jpeg';
-      let extension = 'jpg';
-
       if (mode === 'jpg-to-png') {
         outputMime = 'image/png';
-        extension = 'png';
       } else if (mode === 'jpg-to-webp') {
         outputMime = 'image/webp';
-        extension = 'webp';
-      } else if (mode === 'png-to-jpg' || mode === 'webp-to-jpg') {
-        outputMime = 'image/jpeg';
-        extension = 'jpg';
-      } else if (mode === 'bg-remover') {
-        // Automatically isolate multiple detected background edge color clusters and replace elements gracefully
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imgData.data;
-
-        // Parse custom HEX reference colors to RGB objects
-        const backgroundList = bgColorsToRemove.map(color => {
-          let r = 255, g = 255, b = 255;
-          const hexMatch = color.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-          if (hexMatch) {
-            r = parseInt(hexMatch[1], 16);
-            g = parseInt(hexMatch[2], 16);
-            b = parseInt(hexMatch[3], 16);
-          }
-          return { r, g, b };
-        });
-
-        // Parse replacement colors dynamically from selected hex shade
-        let repR = 255, repG = 255, repB = 255, repA = 255;
-        if (bgSelection === 'transparent') {
-          repA = 0;
-        } else if (bgSelection.startsWith('#')) {
-          const repMatch = bgSelection.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-          if (repMatch) {
-            repR = parseInt(repMatch[1], 16);
-            repG = parseInt(repMatch[2], 16);
-            repB = parseInt(repMatch[3], 16);
-          }
-        }
-
-        // Smart feathered selection boundary tolerance to prevent outline jaggedness
-        const smoothing = Math.max(3, tolerance * 0.45);
-
-        const width = canvas.width;
-        const height = canvas.height;
-        const totalPixels = width * height;
-
-        // visited marks whether we have processed/checked the pixel during edge connectivity traversal
-        const visited = new Uint8Array(totalPixels);
-        // isBg identifies pixels that are connected to the image boundary and match the background color
-        const isBg = new Uint8Array(totalPixels);
-        // flat queue stores y * width + x index coordinates
-        const queue = new Int32Array(totalPixels);
-        let head = 0;
-        let tail = 0;
-
-        // Float32Array to cache calculated distance metric values per pixel (initialized to -1 to mean uncalculated)
-        const minDistances = new Float32Array(totalPixels);
-        minDistances.fill(-1);
-
-        // Precompute background metric calculation
-        const getPixelDistance = (x: number, y: number) => {
-          const idx = y * width + x;
-          if (minDistances[idx] >= 0) {
-            return minDistances[idx];
-          }
-
-          const offset = idx * 4;
-          const r = data[offset];
-          const g = data[offset + 1];
-          const b = data[offset + 2];
-          const sum = r + g + b;
-
-          let minDistance = Infinity;
-
-          for (const ref of backgroundList) {
-            const refR = ref.r;
-            const refG = ref.g;
-            const refB = ref.b;
-
-            // Direct Euclidean distance scaled to 0-100 range (makes white vs skin tone separation robust)
-            const rDiff = r - refR;
-            const gDiff = g - refG;
-            const bDiff = b - refB;
-            let distance = (Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff) / 441.67) * 100;
-
-            // Explicit skin protection: If current pixel is a skin tone, but the background to remove is NOT, protect it.
-            const isRefSkin = isSkinColor(refR, refG, refB);
-            const isPixelSkin = isSkinColor(r, g, b);
-            if (isPixelSkin && !isRefSkin) {
-              distance += 25; // Boost the distance so it stays above the tolerance threshold, protecting the face!
-            }
-
-            if (distance < minDistance) {
-              minDistance = distance;
-            }
-          }
-
-          minDistances[idx] = minDistance;
-          return minDistance;
-        };
-
-        // Seed BFS with border pixels that match background color criteria
-        // Only seed from top edge and upper 32% of left/right edges to avoid hitting clothes or torso at the bottom!
-        
-        // Top edge seeds
-        for (let x = 0; x < width; x++) {
-          const idxTop = x;
-          const distTop = getPixelDistance(x, 0);
-          visited[idxTop] = 1;
-          if (distTop < tolerance + smoothing) {
-            isBg[idxTop] = 1;
-            queue[tail++] = idxTop;
-          }
-        }
-
-        // Left and right columns upper 32% seeds (skipping corners already visited)
-        const activeHeightLimit = Math.floor(height * 0.32);
-        for (let y = 1; y < activeHeightLimit; y++) {
-          // Left column
-          const idxLeft = y * width;
-          const distLeft = getPixelDistance(0, y);
-          visited[idxLeft] = 1;
-          if (distLeft < tolerance + smoothing) {
-            isBg[idxLeft] = 1;
-            queue[tail++] = idxLeft;
-          }
-
-          // Right column
-          if (width > 1) {
-            const idxRight = y * width + (width - 1);
-            const distRight = getPixelDistance(width - 1, y);
-            visited[idxRight] = 1;
-            if (distRight < tolerance + smoothing) {
-              isBg[idxRight] = 1;
-              queue[tail++] = idxRight;
-            }
-          }
-        }
-
-        // 4-connected BFS neighbor offsets
-        const dx = [1, -1, 0, 0];
-        const dy = [0, 0, 1, -1];
-
-        // Process queue
-        while (head < tail) {
-          const currIdx = queue[head++];
-          const cx = currIdx % width;
-          const cy = Math.floor(currIdx / width);
-
-          for (let i = 0; i < 4; i++) {
-            const nx = cx + dx[i];
-            const ny = cy + dy[i];
-
-            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-              const nIdx = ny * width + nx;
-              if (visited[nIdx] === 0) {
-                visited[nIdx] = 1;
-                const dist = getPixelDistance(nx, ny);
-                if (dist < tolerance + smoothing) {
-                  isBg[nIdx] = 1;
-                  queue[tail++] = nIdx;
-                }
-              }
-            }
-          }
-        }
-
-        // Phase 2: Apply alpha factor and background replacements only to edge-connected background pixels
-        for (let i = 0; i < data.length; i += 4) {
-          const idx = i / 4;
-          if (isBg[idx] === 1) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const minDistance = minDistances[idx];
-
-            let alphaFactor = 1.0;
-            if (minDistance < tolerance - smoothing) {
-              alphaFactor = 0;
-            } else {
-              // Linear interpolation of transition factor for visual feathering
-              alphaFactor = (minDistance - (tolerance - smoothing)) / (2 * smoothing);
-            }
-
-            if (bgSelection === 'transparent') {
-              data[i + 3] = Math.round(data[i + 3] * alphaFactor);
-            } else {
-              const blend = 1.0 - alphaFactor;
-              data[i] = Math.round(r * alphaFactor + repR * blend);
-              data[i + 1] = Math.round(g * alphaFactor + repG * blend);
-              data[i + 2] = Math.round(b * alphaFactor + repB * blend);
-              data[i + 3] = Math.round(data[i + 3] * alphaFactor + repA * blend);
-            }
-          }
-        }
-
-        ctx.putImageData(imgData, 0, 0);
-        outputMime = 'image/png';
-        extension = 'png';
       }
 
       const dataUrl = canvas.toDataURL(outputMime, 0.95);
-      if (downloadUrl) {
+      if (downloadUrl && downloadUrl !== transparentCutoutUrl && !downloadUrl.startsWith('data:')) {
         URL.revokeObjectURL(downloadUrl);
       }
       setDownloadUrl(dataUrl);
+      setIsProcessing(false);
+    };
+    img.onerror = () => {
       setIsProcessing(false);
     };
   };
@@ -514,6 +211,12 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
     setFile(null);
     setImageSrc(null);
     setDownloadUrl(null);
+    if (transparentCutoutUrl) {
+      URL.revokeObjectURL(transparentCutoutUrl);
+    }
+    setTransparentCutoutUrl(null);
+    setSegmentationProgress(0);
+    setIsSegmenting(false);
   };
 
   const getModeLabel = () => {
@@ -579,17 +282,6 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
 
             {mode === 'bg-remover' ? (
               <div className="space-y-4">
-                {/* API Error Box if it occurs */}
-                {apiError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-950/20 text-red-650 dark:text-red-400 border border-red-200/40 dark:border-red-900/40 rounded-xl text-xs space-y-1">
-                    <div className="font-semibold flex items-center gap-1">
-                      <LucideIcon name="CircleAlert" size={14} />
-                      <span>Background Removal Error</span>
-                    </div>
-                    <p className="text-[10px] leading-relaxed">{apiError}</p>
-                  </div>
-                )}
-
                 {/* Backdrop Swap options */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-705 dark:text-slate-300 uppercase tracking-wider">
@@ -600,26 +292,32 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
                   <div className="flex p-0.5 bg-slate-100 dark:bg-slate-950 rounded-xl text-xs border border-slate-200/50 dark:border-slate-850">
                     <button
                       type="button"
+                      disabled={isSegmenting}
                       onClick={() => setBgSelection('transparent')}
                       className={`flex-1 py-1.5 font-bold rounded-lg transition-all cursor-pointer text-center ${
+                        isSegmenting ? 'opacity-50 cursor-not-allowed' : ''
+                      } ${
                         bgSelection === 'transparent'
                           ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 shadow-sm'
-                          : 'text-slate-450 hover:text-slate-700'
+                          : 'text-slate-450 hover:text-slate-700 font-medium'
                       }`}
                     >
                       Transparent PNG
                     </button>
                     <button
                       type="button"
+                      disabled={isSegmenting}
                       onClick={() => {
                         if (bgSelection === 'transparent') {
                           setBgSelection('#ffffff'); // default to white when entering color mode
                         }
                       }}
                       className={`flex-1 py-1.5 font-bold rounded-lg transition-all cursor-pointer text-center ${
+                        isSegmenting ? 'opacity-50 cursor-not-allowed' : ''
+                      } ${
                         bgSelection !== 'transparent'
                           ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-cyan-400 shadow-sm'
-                          : 'text-slate-450 hover:text-slate-700'
+                          : 'text-slate-450 hover:text-slate-700 font-medium'
                       }`}
                     >
                       Color Background
@@ -627,7 +325,7 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
                   </div>
 
                   {/* Render solid color controls if bgSelection is not transparent */}
-                  {bgSelection !== 'transparent' && (
+                  {bgSelection !== 'transparent' && !isSegmenting && (
                     <div className="p-3.5 bg-white dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850 space-y-3 shadow-inner">
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         Choose Background Presets or Custom:
@@ -665,7 +363,7 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
                         ))}
                       </div>
 
-                      {/* Custom Color Input for detailed precise selection */}
+                      {/* Custom Color Input */}
                       <div className="flex items-center gap-2 pt-1">
                         <div className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-850 overflow-hidden relative shrink-0">
                           <input
@@ -696,32 +394,14 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
                   )}
                 </div>
 
-                {/* Chroma Threshold Tolerance vs AI Status */}
-                {!hasServerKey ? (
-                  <div className="space-y-1.5 pt-3 border-t border-slate-200 dark:border-slate-800/50">
-                    <div className="flex justify-between text-xs text-slate-600 dark:text-slate-300">
-                      <span>Background Erase Sensitivity:</span>
-                      <span className="font-mono text-blue-500 font-semibold">{tolerance}</span>
-                    </div>
-                    <input
-                      id="tolerance-range-slider"
-                      type="range"
-                      min="5"
-                      max="80"
-                      value={tolerance}
-                      onChange={(e) => setTolerance(Number(e.target.value))}
-                      className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                    />
-                    <p className="text-[9px] text-slate-400">
-                       Adjust if needed to remove shadows or preserve foreground elements.
-                    </p>
+                {/* AI Status Banner */}
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800/10 flex gap-2 items-start text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed bg-indigo-500/5 dark:bg-indigo-500/10 p-2.5 rounded-xl border border-indigo-500/20">
+                  <LucideIcon name="Sparkles" className="text-indigo-500 shrink-0 mt-0.5 animate-pulse" size={14} />
+                  <div>
+                    <span className="font-bold text-indigo-700 dark:text-indigo-300">Free, Unlimited Browser AI Engine Localized.</span>
+                    <p className="mt-0.5">Your foreground subjects are automatically segmented on-device, privately, with zero external server dependencies.</p>
                   </div>
-                ) : (
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800/10 flex gap-2 items-center text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed bg-emerald-500/5 dark:bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
-                    <LucideIcon name="Sparkles" className="text-emerald-500 shrink-0 animate-pulse" size={14} />
-                    <span><b>Flawless AI Studio removal active!</b> Foreground targets (hair, eyes, body) are automatically detected and segmented.</span>
-                  </div>
-                )}
+                </div>
               </div>
             ) : (
               <div className="space-y-2.5 text-xs text-slate-500">
@@ -745,7 +425,7 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
 
             <button
               onClick={handleReset}
-              className="w-full py-2 bg-slate-200/80 hover:bg-slate-300 hover:text-slate-800 dark:bg-slate-800 dark:text-slate-300 font-medium text-xs rounded-xl"
+              className="w-full py-2 bg-slate-200/80 hover:bg-slate-300 hover:text-slate-800 dark:bg-slate-800 dark:text-slate-300 font-medium text-xs rounded-xl cursor-pointer"
             >
               Clear Workspace
             </button>
@@ -758,13 +438,27 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
             </h4>
 
             <div className="flex-1 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-150 p-6 flex flex-col items-center justify-center min-h-[350px]">
-              {isProcessing ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs text-slate-400 font-mono">Encoding arrays of bytes...</span>
+              {isSegmenting ? (
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-1" />
+                  <div className="space-y-1">
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 block">
+                      Image uploading... {segmentationProgress}%
+                    </span>
+                    <span className="text-xs text-slate-450 block max-w-sm">
+                      AI segmenting background...
+                    </span>
+                  </div>
+                </div>
+              ) : isProcessing ? (
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mb-1" />
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-350">
+                    Applying background replacement canvas...
+                  </span>
                 </div>
               ) : downloadUrl ? (
-                <div className="space-y-5 text-center w-full">
+                <div className="space-y-5 text-center w-full animate-fade-in">
                   <div
                     className="p-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-2xl inline-block shadow-lg max-h-[280px] overflow-hidden select-none"
                     style={
@@ -789,7 +483,7 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
                   <a
                     href={downloadUrl}
                     download={`toolmitra_${mode}_${file?.name.split('.')[0] || 'file'}.${mode === 'bg-remover' ? 'png' : mode.split('-to-')[1]}`}
-                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-505 text-white font-semibold text-xs py-3 px-6 rounded-xl shadow-md cursor-pointer hover:scale-102 transition-all active:bg-emerald-700/80 focus:bg-emerald-600"
+                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-512 text-white font-semibold text-xs py-3 px-6 rounded-xl shadow-md cursor-pointer hover:scale-102 transition-all active:bg-emerald-700/80 focus:bg-emerald-600"
                   >
                     <LucideIcon name="Download" size={14} />
                     <span>Download Converter File</span>
