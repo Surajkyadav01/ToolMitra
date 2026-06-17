@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import FeatureSection from './components/FeatureSection';
@@ -22,10 +22,19 @@ export default function App() {
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const { t } = useLanguage();
 
+  const hadToolOpenRef = useRef(false);
+
   // Auto-scroll to top when a specific tool is launched to help the user start right away
   useEffect(() => {
     if (selectedTool) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      hadToolOpenRef.current = true;
+    } else if (hadToolOpenRef.current) {
+      hadToolOpenRef.current = false;
+      // When going back from a tool, scroll directly to the tools catalog section that contains the tool cards
+      setTimeout(() => {
+        document.getElementById('tools-catalog-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   }, [selectedTool]);
 

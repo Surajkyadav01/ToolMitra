@@ -1,6 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import LucideIcon from '../LucideIcon';
 
+const isSkinColor = (r: number, g: number, b: number): boolean => {
+  return (
+    r > 80 &&
+    g > 40 &&
+    b > 20 &&
+    r > g &&
+    r > b &&
+    (r - Math.min(g, b)) > 10 &&
+    Math.abs(r - g) > 10
+  );
+};
+
+const isSkinOrHair = (r: number, g: number, b: number): boolean => {
+  const isSkin = isSkinColor(r, g, b);
+  const isDark = (r + g + b) < 120;
+  return isSkin || isDark;
+};
+
 interface ImageConvertersProps {
   initialMode?: 'jpg-to-png' | 'png-to-jpg' | 'webp-to-jpg' | 'jpg-to-webp' | 'bg-remover';
 }
@@ -116,6 +134,11 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
         const maxClusterDistance = 45; // Euclidean distance threshold
         
         for (const pixel of borderPixels) {
+          // Skip if pixel is skin color or a dark shade (hair / shadow) to protect subject's features
+          if (isSkinOrHair(pixel.r, pixel.g, pixel.b)) {
+            continue;
+          }
+
           let matchedCluster: ColorCluster | null = null;
           let minDistance = Infinity;
           
@@ -355,22 +378,20 @@ export default function ImageConverters({ initialMode = 'jpg-to-png' }: ImageCon
             const refR = ref.r;
             const refG = ref.g;
             const refB = ref.b;
-            const refSum = refR + refG + refB;
 
-            // Normalized color coordinates relative to intensity (protects against pure dark noise)
-            const rn = sum > 15 ? r / sum : 0.333;
-            const gn = sum > 15 ? g / sum : 0.333;
-            const bn = sum > 15 ? b / sum : 0.333;
+            // Direct Euclidean distance scaled to 0-100 range (makes white vs skin tone separation robust)
+            const rDiff = r - refR;
+            const gDiff = g - refG;
+            const bDiff = b - refB;
+            let distance = (Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff) / 441.67) * 100;
 
-            const refRn = refSum > 15 ? refR / refSum : 0.333;
-            const refGn = refSum > 15 ? refG / refSum : 0.333;
-            const refBn = refSum > 15 ? refB / refSum : 0.333;
+            // Explicit skin protection: If current pixel is a skin tone, but the background to remove is NOT, protect it.
+            const isRefSkin = isSkinColor(refR, refG, refB);
+            const isPixelSkin = isSkinColor(r, g, b);
+            if (isPixelSkin && !isRefSkin) {
+              distance += 25; // Boost the distance so it stays above the tolerance threshold, protecting the face!
+            }
 
-            const chromDistance = Math.sqrt(Math.pow(rn - refRn, 2) + Math.pow(gn - refGn, 2) + Math.pow(bn - refBn, 2)) * 255;
-            const intensityMatch = Math.abs(sum - refSum) / 3;
-
-            // Combined distance metric: gives 85% weight to true chrominance (color-hue) and 15% to brightness (shading/folds)
-            const distance = chromDistance + intensityMatch * 0.15;
             if (distance < minDistance) {
               minDistance = distance;
             }
