@@ -86,7 +86,7 @@ export default function Hero({ onExploreClick, onSearchQuery }: HeroProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto border border-slate-150/80 dark:border-slate-800/80 bg-white/60 dark:bg-slate-900/40 p-6 md:p-8 rounded-2xl md:rounded-3xl backdrop-blur-md shadow-sm">
           <div className="text-center space-y-1">
             <div className="font-display font-bold text-3xl sm:text-4xl bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent dark:from-cyan-400 dark:to-blue-400 leading-none">
-              24+
+              25+
             </div>
             <div className="text-xs uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
               {t('hero_stat_utilities', 'Web Utilities')}

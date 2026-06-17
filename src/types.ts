@@ -19,6 +19,7 @@ export type ToolId =
   | 'qr-generator'
   | 'age-calculator'
   | 'pdf-to-word'
+  | 'pdf-editor'
   | 'word-to-pdf'
     | 'img-crop'
   | 'ai-img-enhance'

@@ -325,7 +325,7 @@ export default function AiImageEnhancer() {
             {/* Split Comparison frame sandbox */}
             <div
               ref={containerRef}
-              className="relative border border-slate-200 dark:border-slate-850 rounded-2xl overflow-hidden select-none bg-slate-900 p-2 max-h-[360px] min-h-[260px] w-full flex items-center justify-center mx-auto"
+              className="relative border border-slate-200 dark:border-slate-850 rounded-2xl overflow-hidden select-none bg-slate-50 dark:bg-slate-900/40 p-2 max-h-[360px] min-h-[260px] w-full flex items-center justify-center mx-auto"
             >
               <div 
                 ref={sliderContainerRef} 

@@ -20,6 +20,7 @@ import PdfToWordConverter from './tools/PdfToWordConverter';
 import WordToPdfConverter from './tools/WordToPdfConverter';
 import AiResumeBuilder from './tools/AiResumeBuilder';
 import MbKbConverter from './tools/MbKbConverter';
+import PdfEditor from './tools/PdfEditor';
 
 interface ToolProcessorProps {
   tool: Tool;
@@ -80,6 +81,9 @@ export default function ToolProcessor({ tool, onBack }: ToolProcessorProps) {
       
       case 'pdf-to-word':
         return <PdfToWordConverter />;
+      
+      case 'pdf-editor':
+        return <PdfEditor />;
       
       case 'word-to-pdf':
         return <WordToPdfConverter />;

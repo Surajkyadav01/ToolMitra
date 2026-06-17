@@ -186,6 +186,15 @@ export const TOOLS: Tool[] = [
     isFullyInteractive: true
   },
   {
+    id: 'pdf-editor',
+    name: 'PDF Editor & Form Annotator',
+    description: 'Annotate forms, draw highlights, place signature texts, and redact confidential areas in your PDF document.',
+    categoryId: 'pdf',
+    iconName: 'Edit3',
+    badge: 'Popular',
+    isFullyInteractive: true
+  },
+  {
     id: 'pdf-to-word',
     name: 'PDF to Word Converter',
     description: 'Locally read vector elements or OCR structures from PDF and convert pages into editable Word DOCX files.',
