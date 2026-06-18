@@ -190,7 +190,7 @@ export const TOOLS: Tool[] = [
     name: 'PDF Editor & Form Annotator',
     description: 'Annotate forms, draw highlights, place signature texts, and redact confidential areas in your PDF document.',
     categoryId: 'pdf',
-    iconName: 'Edit3',
+    iconName: 'FileText',
     badge: 'Popular',
     isFullyInteractive: true
   },

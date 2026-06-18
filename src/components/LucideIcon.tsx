@@ -62,7 +62,8 @@ import {
   Pipette,
   ChevronDown,
   ChevronUp,
-  GripVertical
+  GripVertical,
+  Edit3
 } from 'lucide-react';
 
 const iconsMap: Record<string, any> = {
@@ -129,7 +130,8 @@ const iconsMap: Record<string, any> = {
   Pipette,
   ChevronDown,
   ChevronUp,
-  GripVertical
+  GripVertical,
+  Edit3
 };
 
 interface LucideIconProps {

@@ -19,7 +19,7 @@ export default function AboutSection() {
     },
     {
       title: 'Completely Free',
-      description: 'All 16 PDF tools, signature managers, and layout filters are 100% unlocked with zero fee schedules.',
+      description: 'All 25 PDF tools, signature managers, and layout filters are 100% unlocked with zero fee schedules.',
       icon: 'CheckCircle2'
     },
     {

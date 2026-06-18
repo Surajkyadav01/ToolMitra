@@ -33,10 +33,10 @@ export default function FeatureSection() {
 
               {/* Title & Description */}
               <h3 className="font-sans font-bold text-lg text-slate-900 dark:text-white mb-2.5 group-hover:text-indigo-600 dark:group-hover:text-cyan-400 transition-colors">
-                {t(`cp_${index}_title`, feat.title)}
+                {t(`feat_item_${index}_title`, feat.title)}
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
-                {t(`cp_${index}_desc`, feat.description)}
+                {t(`feat_item_${index}_desc`, feat.description)}
               </p>
             </div>
           ))}

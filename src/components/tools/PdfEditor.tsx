@@ -1,25 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import LucideIcon from '../LucideIcon';
+import * as pdfjsLib from 'pdfjs-dist';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import type { RGB } from 'pdf-lib';
 
-// Dynamic script loader for pdf.js, ensuring browser-only high-performance imports
-const loadPdfJs = (): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    if ((window as any).pdfjsLib) {
-      resolve((window as any).pdfjsLib);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    script.onload = () => {
-      const pdfjsLib = (window as any).pdfjsLib;
-      // Configure worker from CDNJS to optimize background rendering
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      resolve(pdfjsLib);
-    };
-    script.onerror = () => reject(new Error('Failed to load PDF engine. Please verify connection.'));
-    document.head.appendChild(script);
-  });
-};
+// Use standard nested or CDN worker fallback to guarantee a compatible worker thread
+const pdfjsVersion = pdfjsLib.version || '6.0.227';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsVersion}/build/pdf.worker.min.mjs`;
 
 interface PdfTextItem {
   id: string; // p[pageIdx]-t[itemIdx]
@@ -31,6 +18,23 @@ interface PdfTextItem {
   height: number;
   fontSize: number;
   fontFamily: string;
+  fontFamilyKey: string;
+  
+  // Font metrics & details extracted:
+  fontWeight: string;
+  fontStyle: string;
+  lineHeight: number;
+  charSpacing: number;
+  ascent: number;
+  descent: number;
+
+  // Native absolute unscaled PDF coordinates:
+  pdfX: number;
+  pdfY: number;
+  pdfWidth: number;
+  pdfHeight: number;
+  pdfFontSize: number;
+  fontName: string;
 }
 
 interface CustomTextItem {
@@ -46,25 +50,87 @@ interface CustomTextItem {
 interface TextOverride {
   value: string;
   color: string;
+  fontFamily?: string;
 }
 
 const PDF_SCALE = 1.25;
 
-const getFontFamily = (fontName: string): string => {
+export interface StandardFont {
+  key: string;
+  name: string;
+  css: string;
+  weight: string;
+  pdfLibFontName: string;
+}
+
+const STANDARD_FONTS: StandardFont[] = [
+  { key: 'Helvetica', name: 'Arial/Helvetica', css: 'Arial, Helvetica, sans-serif', weight: 'normal', pdfLibFontName: 'Helvetica' },
+  { key: 'Helvetica-Bold', name: 'Helvetica Bold', css: 'Arial, Helvetica, sans-serif-bold', weight: 'bold', pdfLibFontName: 'Helvetica-Bold' },
+  { key: 'Times-Roman', name: 'Times New Roman', css: '"Times New Roman", Times, Georgia, serif', weight: 'normal', pdfLibFontName: 'Times-Roman' },
+  { key: 'Courier', name: 'Courier', css: 'Courier, "Courier New", monospace', weight: 'normal', pdfLibFontName: 'Courier' },
+];
+
+const detectFontKey = (fontName: string): string => {
   const norm = (fontName || '').toLowerCase();
   if (norm.includes('times') || norm.includes('serif') || norm.includes('roman') || norm.includes('georgia')) {
-    return 'Georgia, "Times New Roman", serif';
+    return 'Times-Roman';
   }
   if (norm.includes('courier') || norm.includes('mono') || norm.includes('console') || norm.includes('code')) {
-    return '"Courier New", Courier, monospace';
+    return 'Courier';
   }
-  if (norm.includes('helvetica') || norm.includes('arial') || norm.includes('sans')) {
-    return 'Arial, Helvetica, sans-serif';
+  if (norm.includes('bold')) {
+    return 'Helvetica-Bold';
   }
-  if (norm.includes('calibri')) {
-    return 'Calibri, Candara, sans-serif';
+  return 'Helvetica';
+};
+
+const parseColorToPdfLib = (colorStr: string): RGB => {
+  if (colorStr.startsWith('#')) {
+    const hex = colorStr.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) / 255;
+    const g = parseInt(hex.substring(2, 4), 16) / 255;
+    const b = parseInt(hex.substring(4, 6), 16) / 255;
+    return rgb(isNaN(r) ? 0 : r, isNaN(g) ? 0 : g, isNaN(b) ? 0 : b);
   }
-  return 'Arial, Helvetica, sans-serif';
+  if (colorStr.startsWith('rgb')) {
+    const match = colorStr.match(/\d+/g);
+    if (match && match.length >= 3) {
+      const r = parseInt(match[0], 10) / 255;
+      const g = parseInt(match[1], 10) / 255;
+      const b = parseInt(match[2], 10) / 255;
+      return rgb(r, g, b);
+    }
+  }
+  return rgb(0, 0, 0); // default black
+};
+
+const mapToStandardFontName = (selectedFont: string): any => {
+  const font = STANDARD_FONTS.find(f => f.key === selectedFont);
+  return font ? font.pdfLibFontName : 'Helvetica';
+};
+
+const getPdfLibFontName = (baseFontKey: string, weight: string, style: string): string => {
+  const isBold = weight === 'bold' || weight === '700' || weight === '800' || weight === '900' || weight === '600';
+  const isItalic = style === 'italic';
+
+  const base = baseFontKey.toLowerCase();
+  if (base.includes('times') || base.includes('roman') || base.includes('serif')) {
+    if (isBold && isItalic) return 'Times-BoldItalic';
+    if (isBold) return 'Times-Bold';
+    if (isItalic) return 'Times-Italic';
+    return 'Times-Roman';
+  }
+  if (base.includes('courier') || base.includes('mono')) {
+    if (isBold && isItalic) return 'Courier-BoldOblique';
+    if (isBold) return 'Courier-Bold';
+    if (isItalic) return 'Courier-Oblique';
+    return 'Courier';
+  }
+  // Default to Helvetica/Arial family
+  if (isBold && isItalic) return 'Helvetica-BoldOblique';
+  if (isBold) return 'Helvetica-Bold';
+  if (isItalic) return 'Helvetica-Oblique';
+  return 'Helvetica';
 };
 
 export default function PdfEditor() {
@@ -84,6 +150,9 @@ export default function PdfEditor() {
 
   // Sampled page background colors (to cover the old text seamlessly)
   const [bgColors, setBgColors] = useState<{ [itemId: string]: string }>({});
+
+  // Sampled page text/font colors (to preserve original colors)
+  const [fontColors, setFontColors] = useState<{ [itemId: string]: string }>({});
 
   // Config defaults
   const [activeFontColor, setActiveFontColor] = useState<string>('#000000'); // black ink
@@ -110,6 +179,7 @@ export default function PdfEditor() {
     setTextOverrides({});
     setCustomTexts({});
     setBgColors({});
+    setFontColors({});
     setPageTextMap({});
     baseCanvasesRef.current = {};
   };
@@ -127,14 +197,13 @@ export default function PdfEditor() {
     setIsProcessing(true);
     setLoadingProgress(10);
     try {
-      const pdfjs = await loadPdfJs();
       setLoadingProgress(30);
       const fileReader = new FileReader();
 
       fileReader.onload = async () => {
         try {
           const typedArray = new Uint8Array(fileReader.result as ArrayBuffer);
-          const doc = await pdfjs.getDocument({ data: typedArray }).promise;
+          const doc = await pdfjsLib.getDocument({ data: typedArray }).promise;
           
           setPdfDoc(doc);
           setNumPages(doc.numPages);
@@ -150,15 +219,59 @@ export default function PdfEditor() {
             // Standard HD vector viewport scale
             const viewport = page.getViewport({ scale: PDF_SCALE });
             const textContent = await page.getTextContent();
+            const styles = textContent.styles || {};
             
+            // Temporary canvas context for calculating browser-rendered character tracking spacing
+            const tempCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+            const tempCtx = tempCanvas ? tempCanvas.getContext('2d') : null;
+
             const parsedItems: PdfTextItem[] = textContent.items
               .map((item: any, idx: number) => {
-                // Coordinates map (baseline reference)
+                const normFontKey = detectFontKey(item.fontName);
+                const fontMeta = STANDARD_FONTS.find(f => f.key === normFontKey) || STANDARD_FONTS[0];
+
                 const [viewX, viewY] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
                 const fontHeight = Math.abs(item.transform[3] || item.height || 11);
                 const fontSize = fontHeight * PDF_SCALE; // Scale offset matching HD layout
                 const width = item.width * PDF_SCALE;
                 const height = (item.height || fontHeight) * PDF_SCALE;
+
+                // Extract exact font weight, style, and metric ratios
+                const styleObj = styles[item.fontName];
+                const rawFontFamily = styleObj ? styleObj.fontFamily : '';
+
+                let fontWeight = 'normal';
+                const lowerFont = (item.fontName + ' ' + rawFontFamily).toLowerCase();
+                if (lowerFont.includes('bold') || lowerFont.includes('black') || lowerFont.includes('heavy') || lowerFont.includes('w7') || lowerFont.includes('w8') || lowerFont.includes('w9')) {
+                  fontWeight = 'bold';
+                } else if (lowerFont.includes('medium') || lowerFont.includes('semibold') || lowerFont.includes('w5') || lowerFont.includes('w6')) {
+                  fontWeight = '600';
+                }
+
+                let fontStyle = 'normal';
+                if (lowerFont.includes('italic') || lowerFont.includes('oblique')) {
+                  fontStyle = 'italic';
+                } else {
+                  const skewX = item.transform[1] || 0;
+                  const skewY = item.transform[2] || 0;
+                  if (Math.abs(skewX) > 0.1 || Math.abs(skewY) > 0.1) {
+                    fontStyle = 'italic';
+                  }
+                }
+
+                const ascent = styleObj ? (styleObj.ascent || 0.8) : 0.8;
+                const descent = styleObj ? (styleObj.descent || -0.2) : -0.2;
+                const lineHeight = height > 0 && fontSize > 0 ? (height / fontSize) : 1.2;
+
+                // Calculate exact tracking / character spacing using canvas text metrics
+                let charSpacing = 0;
+                if (tempCtx && item.str.length > 1) {
+                  tempCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontMeta.css}`;
+                  const measured = tempCtx.measureText(item.str);
+                  if (width > measured.width) {
+                    charSpacing = (width - measured.width) / (item.str.length - 1);
+                  }
+                }
 
                 return {
                   id: `p${i}-t${idx}`,
@@ -167,9 +280,25 @@ export default function PdfEditor() {
                   left: viewX,
                   top: viewY - height,
                   width: Math.max(width, 14),
-                  height: Math.max(height, fontSize, 10),
+                  height: Math.max(height, fontHeight, 10),
                   fontSize: fontSize,
-                  fontFamily: getFontFamily(item.fontName),
+                  fontFamily: fontMeta.css,
+                  fontFamilyKey: normFontKey,
+                  
+                  // Extracted details
+                  fontWeight,
+                  fontStyle,
+                  lineHeight,
+                  charSpacing,
+                  ascent,
+                  descent,
+
+                  pdfX: item.transform[4],
+                  pdfY: item.transform[5],
+                  pdfWidth: item.width,
+                  pdfHeight: item.height || fontHeight,
+                  pdfFontSize: fontHeight,
+                  fontName: item.fontName,
                 };
               })
               // Filter out completely whitespace elements to speed load times
@@ -249,15 +378,37 @@ export default function PdfEditor() {
         textItems.forEach((item) => {
           const edit = textOverrides[item.id];
           if (edit !== undefined) {
-            const bg = bgColors[item.id] || '#ffffff';
+            const bg = '#ffffff'; // Always match the pure white background of the PDF page canvas
             ctx.fillStyle = bg;
-            // Draw precise overlap background margin to conceal original letters
-            ctx.fillRect(item.left - 4, item.top - 2, item.width + 16, item.height + 4);
 
-            ctx.fillStyle = edit.color;
-            ctx.font = `${item.fontSize}px ${item.fontFamily}`;
-            ctx.textBaseline = 'top';
-            ctx.fillText(edit.value, item.left, item.top);
+            // Calculate precise baseline and cover-up bounding box properties
+            const baselineY = item.top + item.height;
+            const paddingX = 1.5;
+            const paddingY = 0.5;
+            const coverX = item.left - paddingX;
+            const coverY = baselineY - (item.ascent * item.fontSize) - paddingY;
+            const coverWidth = item.width + 2 * paddingX;
+            const coverHeight = (item.ascent - item.descent) * item.fontSize + 2 * paddingY;
+
+            // Draw precise overlap background margin to conceal original letters
+            ctx.fillRect(coverX, coverY, coverWidth, coverHeight);
+
+            const fontKey = edit.fontFamily || item.fontFamilyKey || 'Helvetica';
+            const fontMeta = STANDARD_FONTS.find(f => f.key === fontKey) || STANDARD_FONTS[0];
+            const activeWeight = edit.fontFamily ? (fontMeta.weight === 'bold' ? 'bold' : 'normal') : item.fontWeight;
+            const activeStyle = edit.fontFamily ? 'normal' : item.fontStyle;
+
+            // Match exact original text color dynamically
+            const textColorStr = edit.color || fontColors[item.id] || '#000000';
+            ctx.fillStyle = textColorStr;
+            ctx.font = `${activeStyle} ${activeWeight} ${item.fontSize}px ${fontMeta.css}`;
+            try {
+              (ctx as any).letterSpacing = `${item.charSpacing}px`;
+            } catch (e) {
+              // ignore browsers without canvas letterSpacing support
+            }
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(edit.value, item.left, baselineY);
           }
         });
 
@@ -265,7 +416,9 @@ export default function PdfEditor() {
         const customItems = customTexts[pageIdx] || [];
         customItems.forEach((cust) => {
           ctx.fillStyle = cust.color;
-          ctx.font = `bold ${cust.fontSize}px ${cust.fontFamily}`;
+          const fontKey = cust.fontFamily || 'Helvetica';
+          const fontMeta = STANDARD_FONTS.find(f => f.key === fontKey) || STANDARD_FONTS[0];
+          ctx.font = `${fontMeta.weight === 'bold' ? 'bold ' : ''}${cust.fontSize}px ${fontMeta.css}`;
           ctx.textBaseline = 'top';
           ctx.fillText(cust.str, cust.left, cust.top);
         });
@@ -288,71 +441,109 @@ export default function PdfEditor() {
 
   // Compile full document with native pdf-lib layers alignment
   const handleDownloadMergedPDF = async () => {
-    if (!pdfDoc || numPages === 0) return;
+    if (!file || numPages === 0) return;
     setIsProcessing(true);
     setLoadingProgress(10);
     setError(null);
 
     try {
-      const { PDFDocument } = await import('pdf-lib');
-      const compiledPdfDoc = await PDFDocument.create();
+      // Load original document natively to preserve its vectors and forms
+      const fileBytes = await file.arrayBuffer();
+      const compiledPdfDoc = await PDFDocument.load(fileBytes);
+      const pages = compiledPdfDoc.getPages();
+
+      // Embed standard fonts once so PDF building is lightning-fast and offline-ready
+      const embeddedFontsMap: Record<string, any> = {};
+      const allFontsToEmbed = [
+        'Helvetica', 'Helvetica-Bold', 'Helvetica-Oblique', 'Helvetica-BoldOblique',
+        'Times-Roman', 'Times-Bold', 'Times-Italic', 'Times-BoldItalic',
+        'Courier', 'Courier-Bold', 'Courier-Oblique', 'Courier-BoldOblique'
+      ];
+      for (const fName of allFontsToEmbed) {
+        try {
+          embeddedFontsMap[fName] = await compiledPdfDoc.embedFont(fName as any);
+        } catch (e) {
+          console.error(`Could not embed standard font ${fName}:`, e);
+        }
+      }
 
       for (let i = 0; i < numPages; i++) {
         setLoadingProgress(Math.round(10 + (80 * (i + 1)) / numPages));
 
-        const baseCanvas = baseCanvasesRef.current[i];
-        if (!baseCanvas) continue;
+        const page = pages[i];
+        if (!page) continue;
 
-        const mergedCanvas = document.createElement('canvas');
-        mergedCanvas.width = baseCanvas.width;
-        mergedCanvas.height = baseCanvas.height;
+        const originalPage = await pdfDoc.getPage(i + 1);
+        const viewport = originalPage.getViewport({ scale: PDF_SCALE });
+        const pageHeight = page.getHeight();
 
-        const ctx = mergedCanvas.getContext('2d');
-        if (!ctx) continue;
-
-        // Base document
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, mergedCanvas.width, mergedCanvas.height);
-        ctx.drawImage(baseCanvas, 0, 0);
-
-        // Text override layers
+        // 1. Draw background cover rectangle first, then rewrite user-overridden inline strings
         const textItems = pageTextMap[i] || [];
-        textItems.forEach((item) => {
+        for (const item of textItems) {
           const edit = textOverrides[item.id];
           if (edit !== undefined) {
-            const bg = bgColors[item.id] || '#ffffff';
-            ctx.fillStyle = bg;
-            // Draw precise overlap background margin to conceal original letters
-            ctx.fillRect(item.left - 4, item.top - 2, item.width + 16, item.height + 4);
+            const bg = '#ffffff'; // Match the pure white background of the PDF page canvas
+            
+            const paddingX = 1.5;
+            const paddingY = 0.5;
+            const coverX = item.pdfX - paddingX;
+            const coverY = item.pdfY + (item.descent * item.pdfFontSize) - paddingY;
+            const coverWidth = item.pdfWidth + 2 * paddingX;
+            const coverHeight = (item.ascent - item.descent) * item.pdfFontSize + 2 * paddingY;
 
-            ctx.fillStyle = edit.color;
-            ctx.font = `${item.fontSize}px ${item.fontFamily}`;
-            ctx.textBaseline = 'top';
-            ctx.fillText(edit.value, item.left, item.top);
+            // Cover original vector letters with a seamless background-colored block
+            page.drawRectangle({
+              x: coverX,
+              y: coverY,
+              width: coverWidth,
+              height: coverHeight,
+              color: parseColorToPdfLib(bg),
+            });
+
+            // Synchronize font family, weights and styles perfectly
+            const fontKey = edit.fontFamily || item.fontFamilyKey || 'Helvetica';
+            const activeWeight = edit.fontFamily 
+              ? (fontKey.includes('Bold') ? 'bold' : 'normal') 
+              : item.fontWeight;
+            const activeStyle = edit.fontFamily ? 'normal' : item.fontStyle;
+
+            const pdfLibFontName = getPdfLibFontName(fontKey, activeWeight, activeStyle);
+            const fontObj = embeddedFontsMap[pdfLibFontName] || embeddedFontsMap['Helvetica'];
+
+            // Match exact original text color dynamically
+            const textColorStr = edit.color || fontColors[item.id] || '#000000';
+
+            // Paint new characters on the exact same baseline and size coordinates
+            page.drawText(edit.value, {
+              x: item.pdfX,
+              y: item.pdfY,
+              size: item.pdfFontSize,
+              font: fontObj,
+              color: parseColorToPdfLib(textColorStr),
+              characterSpacing: item.charSpacing / PDF_SCALE,
+            } as any);
           }
-        });
+        }
 
-        // Custom placed labels
+        // 2. Draw user-added dynamic text overlay boxes
         const customItems = customTexts[i] || [];
-        customItems.forEach((cust) => {
-          ctx.fillStyle = cust.color;
-          ctx.font = `bold ${cust.fontSize}px ${cust.fontFamily}`;
-          ctx.textBaseline = 'top';
-          ctx.fillText(cust.str, cust.left, cust.top);
-        });
+        for (const cust of customItems) {
+          const [pdfX, pdfY] = typeof viewport.convertToPdfPoint === 'function'
+            ? viewport.convertToPdfPoint(cust.left, cust.top)
+            : [cust.left / PDF_SCALE, pageHeight - (cust.top / PDF_SCALE)];
 
-        // Convert page scale image payload
-        const imgDataUrl = mergedCanvas.toDataURL('image/jpeg', 0.92);
-        const imgBytes = await fetch(imgDataUrl).then((res) => res.arrayBuffer());
+          const fontKey = cust.fontFamily || 'Helvetica';
+          const fontObj = embeddedFontsMap[fontKey] || embeddedFontsMap['Helvetica'];
 
-        const embeddedJpg = await compiledPdfDoc.embedJpg(imgBytes);
-        const page = compiledPdfDoc.addPage([embeddedJpg.width, embeddedJpg.height]);
-        page.drawImage(embeddedJpg, {
-          x: 0,
-          y: 0,
-          width: embeddedJpg.width,
-          height: embeddedJpg.height,
-        });
+          // In PDF, drawText drawing starts from bottom baseline, so shift by fontSize
+          page.drawText(cust.str, {
+            x: pdfX,
+            y: pdfY - (cust.fontSize / PDF_SCALE),
+            size: cust.fontSize / PDF_SCALE,
+            font: fontObj,
+            color: parseColorToPdfLib(cust.color),
+          });
+        }
       }
 
       setLoadingProgress(95);
@@ -362,7 +553,7 @@ export default function PdfEditor() {
 
       const link = document.createElement('a');
       link.href = downloadUrl;
-      const cleanName = file?.name.replace(/\.[^/.]+$/, "") || 'document';
+      const cleanName = file.name.replace(/\.[^/.]+$/, "");
       link.download = `${cleanName}_edited_toolmitra.pdf`;
       document.body.appendChild(link);
       link.click();
@@ -379,6 +570,50 @@ export default function PdfEditor() {
       setIsProcessing(false);
     }
   };
+
+  // Helper variables for focused item properties to avoid complex TS untyped Object.values queries
+  let currentTextVal = '';
+  let currentTextFont = 'Helvetica';
+  let currentTextColor = activeFontColor;
+
+  if (focusedItemId) {
+    if (focusedItemId.startsWith('custom-')) {
+      let found: CustomTextItem | undefined;
+      for (const key in customTexts) {
+        const items = customTexts[key];
+        if (items) {
+          found = items.find(c => c.id === focusedItemId);
+          if (found) break;
+        }
+      }
+      if (found) {
+        currentTextVal = found.str;
+        currentTextFont = found.fontFamily;
+        currentTextColor = found.color;
+      }
+    } else {
+      const existingOverride = textOverrides[focusedItemId];
+      if (existingOverride !== undefined) {
+        currentTextVal = existingOverride.value;
+        currentTextColor = existingOverride.color;
+        currentTextFont = existingOverride.fontFamily || 'Helvetica';
+      } else {
+        let foundItem: PdfTextItem | undefined;
+        for (const key in pageTextMap) {
+          const items = pageTextMap[key];
+          if (items) {
+            foundItem = items.find(item => item.id === focusedItemId);
+            if (foundItem) break;
+          }
+        }
+        if (foundItem) {
+          currentTextVal = foundItem.str;
+          currentTextColor = fontColors[focusedItemId] || activeFontColor;
+          currentTextFont = foundItem.fontFamilyKey;
+        }
+      }
+    }
+  }
 
   return (
     <div id="pdf-editor-root" className="space-y-6">
@@ -447,87 +682,183 @@ export default function PdfEditor() {
            {/* Left Panel: Sizing & Controls */}
           <div className="lg:col-span-4 space-y-5 bg-slate-50/70 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-150 dark:border-slate-800/80">
             
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pb-2 border-b border-slate-200/40 dark:border-slate-800/60">
-              Text Style Tooling
-            </span>
-
-            {/* Quick preset paint selection */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ink Pen color</label>
-              <div className="flex gap-1.5">
-                {[
-                  { hex: '#000000', name: 'Original Black' },
-                  { hex: '#4b5563', name: 'Original Grey' },
-                  { hex: '#1d4ed8', name: 'Biometric Blue' },
-                  { hex: '#dc2626', name: 'Correction Red' },
-                ].map((color) => (
-                  <button
-                    key={color.hex}
-                    type="button"
-                    onClick={() => {
-                      setActiveFontColor(color.hex);
-                      if (focusedItemId) {
-                        if (focusedItemId.startsWith('custom-')) {
-                          setCustomTexts((prev) => {
-                            const updated = { ...prev };
-                            for (const pageIdx in updated) {
-                              updated[pageIdx] = updated[pageIdx].map((c) =>
-                                c.id === focusedItemId ? { ...c, color: color.hex } : c
-                              );
-                            }
-                            return updated;
-                          });
-                        } else {
-                          setTextOverrides((prev) => {
-                            const existing = prev[focusedItemId];
-                            const originalItem = (Object.values(pageTextMap) as PdfTextItem[][])
-                              .flat()
-                              .find((item) => item.id === focusedItemId);
-                            return {
-                              ...prev,
-                              [focusedItemId]: {
-                                value: existing ? existing.value : (originalItem?.str || ''),
-                                color: color.hex,
-                              },
-                            };
-                          });
-                        }
-                      }
-                    }}
-                    className={`flex-1 py-1 px-0.5 rounded-lg text-[9px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
-                      activeFontColor === color.hex
-                        ? 'border-blue-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm ring-2 ring-blue-500/10'
-                        : 'border-slate-200 hover:bg-white text-slate-500 hover:text-slate-800 dark:border-slate-350 dark:hover:bg-slate-850'
-                    }`}
-                  >
-                    <span className="w-3.5 h-3.5 rounded-full border border-slate-200/50" style={{ backgroundColor: color.hex }} />
-                    <span>{color.name.split(' ')[1]}</span>
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200/40 dark:border-slate-800/60">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Text Property Inspector
+              </span>
+              {focusedItemId && (
+                <button
+                  type="button"
+                  onClick={() => setFocusedItemId(null)}
+                  className="text-[10px] text-blue-600 dark:text-cyan-400 font-bold hover:underline cursor-pointer"
+                >
+                  Deselect [X]
+                </button>
+              )}
             </div>
 
-            {/* Custom Edit Font Sizing Controller */}
-            <div className="space-y-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/60">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Selected Text Sizing
-              </label>
-              <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-950 p-2 rounded-xl border border-slate-150 dark:border-slate-800/80">
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                  {focusedItemId ? 'Adjust word size:' : 'Click word to resize'}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    disabled={!focusedItemId}
-                    onClick={() => {
-                      if (focusedItemId) {
+            {focusedItemId ? (
+              <div className="space-y-4 animate-fadeIn">
+                {/* Real-time doublebound value editor */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-540 uppercase tracking-wider block">
+                    Text Characters
+                  </label>
+                  <input
+                    type="text"
+                    value={currentTextVal}
+                    onChange={(e) => {
+                      const newVal = e.target.value;
+                      if (focusedItemId.startsWith('custom-')) {
+                        setCustomTexts((prev) => {
+                          const updated = { ...prev };
+                          for (const pageIdx in updated) {
+                            const items = updated[pageIdx];
+                            if (items) {
+                              updated[pageIdx] = items.map((c) =>
+                                c.id === focusedItemId ? { ...c, str: newVal } : c
+                              );
+                            }
+                          }
+                          return updated;
+                        });
+                      } else {
+                        setTextOverrides((prev) => ({
+                          ...prev,
+                          [focusedItemId]: {
+                            value: newVal,
+                            color: prev[focusedItemId]?.color || activeFontColor,
+                            fontFamily: prev[focusedItemId]?.fontFamily,
+                          },
+                        }));
+                      }
+                    }}
+                    className="w-full text-xs px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-1.5 focus:ring-blue-500 text-slate-800 dark:text-white font-semibold shadow-sm"
+                    placeholder="Type replacement characters..."
+                  />
+                </div>
+
+                {/* Dropdown to adjust font-family dynamically */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-540 uppercase tracking-wider block">
+                    Original/Manual Font
+                  </label>
+                  <select
+                    value={currentTextFont}
+                    onChange={(e) => {
+                      const fontKey = e.target.value;
+                      if (focusedItemId.startsWith('custom-')) {
+                        setCustomTexts((prev) => {
+                          const updated = { ...prev };
+                          for (const pageIdx in updated) {
+                            const items = updated[pageIdx];
+                            if (items) {
+                              updated[pageIdx] = items.map((c) =>
+                                c.id === focusedItemId ? { ...c, fontFamily: fontKey } : c
+                              );
+                            }
+                          }
+                          return updated;
+                        });
+                      } else {
+                        setTextOverrides((prev) => {
+                          const existing = prev[focusedItemId];
+                          return {
+                            ...prev,
+                            [focusedItemId]: {
+                              value: existing !== undefined ? existing.value : currentTextVal,
+                              color: existing ? existing.color : activeFontColor,
+                              fontFamily: fontKey,
+                            },
+                          };
+                        });
+                      }
+                    }}
+                    className="w-full text-xs px-2.5 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-1.5 focus:ring-blue-500 text-slate-800 dark:text-white"
+                  >
+                    {STANDARD_FONTS.map((font) => (
+                      <option key={font.key} value={font.key}>
+                        {font.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Font Color */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-540 uppercase tracking-wider block">
+                    Pen Color
+                  </label>
+                  <div className="flex gap-1">
+                    {[
+                      { hex: '#000000', name: 'Black' },
+                      { hex: '#4b5563', name: 'Grey' },
+                      { hex: '#1d4ed8', name: 'Blue' },
+                      { hex: '#dc2626', name: 'Red' },
+                    ].map((color) => {
+                      const isCurrent = currentTextColor === color.hex;
+                      
+                      return (
+                        <button
+                          key={color.hex}
+                          type="button"
+                          onClick={() => {
+                            if (focusedItemId.startsWith('custom-')) {
+                              setCustomTexts((prev) => {
+                                const updated = { ...prev };
+                                for (const pageIdx in updated) {
+                                  const items = updated[pageIdx];
+                                  if (items) {
+                                    updated[pageIdx] = items.map((c) =>
+                                      c.id === focusedItemId ? { ...c, color: color.hex } : c
+                                    );
+                                  }
+                                }
+                                return updated;
+                              });
+                            } else {
+                              setTextOverrides((prev) => {
+                                const existing = prev[focusedItemId];
+                                return {
+                                  ...prev,
+                                  [focusedItemId]: {
+                                    value: existing !== undefined ? existing.value : currentTextVal,
+                                    color: color.hex,
+                                    fontFamily: existing?.fontFamily,
+                                  },
+                                };
+                              });
+                            }
+                          }}
+                          className={`flex-1 py-1 px-1 rounded-lg text-[9px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
+                            isCurrent
+                              ? 'border-blue-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm ring-2 ring-blue-500/10'
+                              : 'border-slate-200 hover:bg-white text-slate-500 hover:text-slate-800 dark:border-slate-850 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <span className="w-3 h-3 rounded-full border border-slate-200/50" style={{ backgroundColor: color.hex }} />
+                          <span>{color.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Sizing precision controls */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-540 uppercase tracking-wider block">
+                    Font Size Tuning
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
                         if (focusedItemId.startsWith('custom-')) {
                           setCustomTexts((prev) => {
                             const updated = { ...prev };
                             for (const pageIdx in updated) {
                               updated[pageIdx] = updated[pageIdx].map((c) =>
-                                c.id === focusedItemId ? { ...c, fontSize: Math.max(8, c.fontSize - 1) } : c
+                                c.id === focusedItemId ? { ...c, fontSize: Math.max(6, c.fontSize - 1) } : c
                               );
                             }
                             return updated;
@@ -538,7 +869,7 @@ export default function PdfEditor() {
                             for (const idx in updated) {
                               updated[idx] = updated[idx].map((item) => {
                                 if (item.id === focusedItemId) {
-                                  return { ...item, fontSize: Math.max(8, item.fontSize - 1) };
+                                  return { ...item, fontSize: Math.max(6, item.fontSize - 1) };
                                 }
                                 return item;
                               });
@@ -546,24 +877,20 @@ export default function PdfEditor() {
                             return updated;
                           });
                         }
-                      }
-                    }}
-                    className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900 cursor-pointer text-xs font-bold text-slate-650 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Shrink selected text size"
-                  >
-                    A-
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!focusedItemId}
-                    onClick={() => {
-                      if (focusedItemId) {
+                      }}
+                      className="flex-1 py-1.5 border border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold cursor-pointer transition-all active:scale-95 text-center"
+                    >
+                      A - (Shrink)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         if (focusedItemId.startsWith('custom-')) {
                           setCustomTexts((prev) => {
                             const updated = { ...prev };
                             for (const pageIdx in updated) {
                               updated[pageIdx] = updated[pageIdx].map((c) =>
-                                c.id === focusedItemId ? { ...c, fontSize: Math.min(60, c.fontSize + 1) } : c
+                                c.id === focusedItemId ? { ...c, fontSize: Math.min(72, c.fontSize + 1) } : c
                               );
                             }
                             return updated;
@@ -574,7 +901,7 @@ export default function PdfEditor() {
                             for (const idx in updated) {
                               updated[idx] = updated[idx].map((item) => {
                                 if (item.id === focusedItemId) {
-                                  return { ...item, fontSize: Math.min(60, item.fontSize + 1) };
+                                  return { ...item, fontSize: Math.min(72, item.fontSize + 1) };
                                 }
                                 return item;
                               });
@@ -582,16 +909,30 @@ export default function PdfEditor() {
                             return updated;
                           });
                         }
-                      }
-                    }}
-                    className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900 cursor-pointer text-xs font-bold text-slate-650 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Grow selected text size"
-                  >
-                    A+
-                  </button>
+                      }}
+                      className="flex-1 py-1.5 border border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold cursor-pointer transition-all active:scale-95 text-center"
+                    >
+                      A + (Grow)
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Helpful fallback panel before selecting word */
+              <div className="p-4 bg-white dark:bg-slate-900/60 border border-slate-150 dark:border-slate-800 rounded-xl text-center space-y-2 select-none">
+                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                  <LucideIcon name="CursorClick" size={14} className="animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
+                    Interactive Workspace
+                  </h4>
+                  <p className="text-[10.5px] text-slate-400 leading-normal">
+                    Click any word directly in the document page to modify characters, change font-framer weights, and dynamically tune sizes with precision.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Placer toggle button */}
             <div className="space-y-2 pt-2 border-t border-slate-200/40 dark:border-slate-800/60">
@@ -791,7 +1132,11 @@ export default function PdfEditor() {
                     onTextOverrideChange={(itemId, val) => {
                       setTextOverrides((prev) => ({
                         ...prev,
-                        [itemId]: { value: val, color: activeFontColor },
+                        [itemId]: {
+                          value: val,
+                          color: prev[itemId]?.color || fontColors[itemId] || '#000000',
+                          fontFamily: prev[itemId]?.fontFamily || (pageTextMap[pageIdx]?.find(i => i.id === itemId)?.fontFamilyKey),
+                        },
                       }));
                     }}
                     onTextOverrideReset={(itemId) => {
@@ -837,10 +1182,15 @@ export default function PdfEditor() {
                       });
                     }}
                     bgColors={bgColors}
-                    onBgColorSampled={(itemId, color) => {
+                    fontColors={fontColors}
+                    onColorsSampled={(itemId, bgColor, textColor) => {
                       setBgColors((prev) => {
-                        if (prev[itemId] === color) return prev;
-                        return { ...prev, [itemId]: color };
+                        if (prev[itemId] === bgColor) return prev;
+                        return { ...prev, [itemId]: bgColor };
+                      });
+                      setFontColors((prev) => {
+                        if (prev[itemId] === textColor) return prev;
+                        return { ...prev, [itemId]: textColor };
                       });
                     }}
                     baseCanvasesRef={baseCanvasesRef}
@@ -874,7 +1224,8 @@ interface EditablePdfPageProps {
   onCustomTextChange: (itemId: string, newValue: string) => void;
   onCustomTextDelete: (itemId: string) => void;
   bgColors: { [itemId: string]: string };
-  onBgColorSampled: (itemId: string, color: string) => void;
+  fontColors: { [itemId: string]: string };
+  onColorsSampled: (itemId: string, bgColor: string, textColor: string) => void;
   baseCanvasesRef: React.MutableRefObject<{ [pageIdx: number]: HTMLCanvasElement | null }>;
   isAddTextMode: boolean;
   activeFontColor: string;
@@ -895,7 +1246,8 @@ const EditablePdfPage: React.FC<EditablePdfPageProps> = ({
   onCustomTextChange,
   onCustomTextDelete,
   bgColors,
-  onBgColorSampled,
+  fontColors,
+  onColorsSampled,
   baseCanvasesRef,
   isAddTextMode,
   activeFontColor,
@@ -927,6 +1279,9 @@ const EditablePdfPage: React.FC<EditablePdfPageProps> = ({
           
           const ctx = canvas.getContext('2d');
           if (ctx) {
+            // Guarantee a solid white background backing so transparency is handled elegantly and pixels match perfectly
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             await page.render({ canvasContext: ctx, viewport }).promise;
             if (active) {
               setIsRendered(true);
@@ -946,28 +1301,67 @@ const EditablePdfPage: React.FC<EditablePdfPageProps> = ({
     };
   }, [pdfDoc, pageNum]);
 
-  // Sample colors from background when document completes fully rendering
+  // Sample colors from background and text strokes when document completes fully rendering
   useEffect(() => {
     if (isRendered && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        textItems.forEach((item) => {
-          try {
-            // sample background slightly left-top offset
-            const sx = Math.max(0, Math.floor(item.left - 4));
-            const sy = Math.max(0, Math.floor(item.top - 4));
-            const pixel = ctx.getImageData(sx, sy, 1, 1).data;
-            if (pixel[3] > 10) {
-              const sampledColor = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
-              onBgColorSampled(item.id, sampledColor);
-            } else {
-              onBgColorSampled(item.id, '#ffffff'); // fallback translucent white
+        try {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+
+          const getPixel = (x: number, y: number) => {
+            const nx = Math.max(0, Math.min(canvas.width - 1, Math.floor(x)));
+            const ny = Math.max(0, Math.min(canvas.height - 1, Math.floor(y)));
+            const idx = (ny * canvas.width + nx) * 4;
+            return [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
+          };
+
+          textItems.forEach((item) => {
+            try {
+              // sample background slightly left-top offset
+              const bgPixel = getPixel(item.left - 4, item.top - 4);
+              let bgColor = 'rgb(255, 255, 255)';
+              if (bgPixel[3] > 10) {
+                bgColor = `rgb(${bgPixel[0]}, ${bgPixel[1]}, ${bgPixel[2]})`;
+              }
+
+              // Scan horizontal and vertical coordinates to find the text stroke color (highest distance from background)
+              let maxDist = -1;
+              let bestColor = 'rgb(0, 0, 0)';
+
+              // Scan horizontal lines across the word
+              const yOffsets = [0.3, 0.4, 0.5, 0.6, 0.7];
+              const xFactors = [0.15, 0.3, 0.45, 0.6, 0.75, 0.9];
+
+              for (const yOffset of yOffsets) {
+                const cy = item.top + item.height * yOffset;
+                for (const xFactor of xFactors) {
+                  const cx = item.left + item.width * xFactor;
+                  const p = getPixel(cx, cy);
+                  if (p[3] > 10) {
+                    const dist = Math.abs(p[0] - bgPixel[0]) + Math.abs(p[1] - bgPixel[1]) + Math.abs(p[2] - bgPixel[2]);
+                    if (dist > maxDist) {
+                      maxDist = dist;
+                      bestColor = `rgb(${p[0]}, ${p[1]}, ${p[2]})`;
+                    }
+                  }
+                }
+              }
+
+              const isDarkBg = (bgPixel[0] * 0.299 + bgPixel[1] * 0.587 + bgPixel[2] * 0.114) < 128;
+              const fallbackTextColor = isDarkBg ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
+              const textColor = maxDist > 40 ? bestColor : fallbackTextColor;
+
+              onColorsSampled(item.id, bgColor, textColor);
+            } catch (e) {
+              onColorsSampled(item.id, '#ffffff', '#000000');
             }
-          } catch (e) {
-            onBgColorSampled(item.id, '#ffffff'); // cross-origin/err fallback
-          }
-        });
+          });
+        } catch (e) {
+          console.error("Canvas pixel sampling error:", e);
+        }
       }
     }
   }, [isRendered, textItems]);
@@ -1009,7 +1403,14 @@ const EditablePdfPage: React.FC<EditablePdfPageProps> = ({
             const hasEdit = edit !== undefined;
             const isFocused = focusedItemId === item.id;
             const currentVal = hasEdit ? edit.value : item.str;
-            const bg = bgColors[item.id] || '#ffffff';
+            const bg = '#ffffff'; // Force clean white background masking to perfectly blend with white canvas
+
+            const baselineY = item.top + item.height;
+            const paddingX = 1.5;
+            const paddingY = 0.5;
+            const coverX = item.left - paddingX;
+            const coverY = baselineY - (item.ascent * item.fontSize) - paddingY;
+            const coverHeight = (item.ascent - item.descent) * item.fontSize + 2 * paddingY;
 
             if (!hasEdit && !isFocused) {
               // Pristine unedited word: completely transparent seamless trigger box
@@ -1022,10 +1423,10 @@ const EditablePdfPage: React.FC<EditablePdfPageProps> = ({
                   }}
                   className="absolute cursor-text border border-transparent hover:bg-blue-500/5 hover:border-blue-400/30 hover:rounded-sm transition-all z-10"
                   style={{
-                    left: `${item.left}px`,
-                    top: `${item.top}px`,
-                    width: `${item.width}px`,
-                    height: `${item.height}px`,
+                    left: `${coverX}px`,
+                    top: `${coverY}px`,
+                    width: `${item.width + 2 * paddingX}px`,
+                    height: `${coverHeight}px`,
                   }}
                   title="Click to edit word"
                 />
@@ -1033,20 +1434,27 @@ const EditablePdfPage: React.FC<EditablePdfPageProps> = ({
             }
 
             // Word is being actively edited or is focused
+            const originalColor = fontColors[item.id] || '#000000';
+            const estimatedWidth = currentVal.length === 0 ? 10 : Math.max(item.width, (currentVal.length / item.originalStr.length) * item.width);
+
+            const activeFontMeta = STANDARD_FONTS.find(f => f.key === (edit?.fontFamily || item.fontFamilyKey)) || STANDARD_FONTS[0];
+            const activeWeight = edit?.fontFamily ? activeFontMeta.weight : item.fontWeight;
+            const activeStyle = edit?.fontFamily ? 'normal' : item.fontStyle;
+
             return (
               <div
                 key={item.id}
                 className={`absolute transition-all rounded group ${
                   isFocused
-                    ? 'ring-1.5 ring-blue-500 z-30 shadow bg-white'
+                    ? 'ring-1.5 ring-blue-500 z-30 shadow-sm'
                     : 'z-20 border border-transparent'
                 }`}
                 style={{
-                  left: `${item.left - 2}px`,
-                  top: `${item.top}px`,
-                  width: `${item.width + 12}px`,
-                  height: `${item.height}px`,
-                  backgroundColor: bg, // Cover the underlying original vector canvas text
+                  left: `${coverX}px`,
+                  top: `${coverY}px`,
+                  width: `${estimatedWidth + 2 * paddingX}px`,
+                  height: `${coverHeight}px`,
+                  backgroundColor: bg, // Cover the underlying original vector canvas text with pure matching white
                 }}
               >
                 <input
@@ -1054,13 +1462,19 @@ const EditablePdfPage: React.FC<EditablePdfPageProps> = ({
                   value={currentVal}
                   autoFocus={isFocused}
                   onFocus={() => setFocusedItemId(item.id)}
-                  onBlur={() => setFocusedItemId(null)}
                   onChange={(e) => onTextOverrideChange(item.id, e.target.value)}
-                  className="w-full h-full bg-transparent border-none outline-none leading-none select-text cursor-text p-0 m-0 text-left"
+                  className="w-full h-full bg-transparent border-none outline-none leading-none select-text cursor-text p-0 m-0 text-left caret-blue-500"
                   style={{
                     fontSize: `${item.fontSize}px`,
-                    fontFamily: item.fontFamily,
-                    color: hasEdit ? edit.color : activeFontColor,
+                    fontFamily: activeFontMeta.css,
+                    fontWeight: activeWeight,
+                    fontStyle: activeStyle,
+                    letterSpacing: `${item.charSpacing}px`,
+                    color: edit?.color || originalColor,
+                    lineHeight: '1',
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
                   }}
                   title={hasEdit ? `Edited. Original: "${item.originalStr}"` : 'Edit word'}
                 />
@@ -1085,38 +1499,43 @@ const EditablePdfPage: React.FC<EditablePdfPageProps> = ({
           })}
 
           {/* Custom text items labels overlays */}
-          {customTextItems.map((cust) => (
-            <div
-              key={cust.id}
-              className="absolute group"
-              style={{
-                left: `${cust.left}px`,
-                top: `${cust.top}px`,
-                width: 'fit-content',
-                minWidth: '100px',
-              }}
-            >
-              <input
-                type="text"
-                value={cust.str}
-                onChange={(e) => onCustomTextChange(cust.id, e.target.value)}
-                className="bg-transparent border-none outline-none focus:bg-white dark:focus:bg-slate-900 border-b border-dashed border-blue-500/20 text-xs text-left focus:ring-1 focus:ring-blue-500 px-1 py-0.5 rounded font-bold"
+          {customTextItems.map((cust) => {
+            const fontMeta = STANDARD_FONTS.find(f => f.key === cust.fontFamily) || STANDARD_FONTS[0];
+            return (
+              <div
+                key={cust.id}
+                className="absolute group"
                 style={{
-                  fontSize: `${cust.fontSize}px`,
-                  fontFamily: cust.fontFamily,
-                  color: cust.color,
-                  width: `${Math.max(120, cust.str.length * 8)}px`,
+                  left: `${cust.left}px`,
+                  top: `${cust.top}px`,
+                  width: 'fit-content',
+                  minWidth: '100px',
                 }}
-              />
-              <button
-                onClick={() => onCustomTextDelete(cust.id)}
-                className="absolute -top-3.5 -right-3.5 hidden group-hover:flex items-center justify-center w-5.5 h-5.5 bg-slate-500 hover:bg-slate-750 text-white rounded-full p-1 cursor-pointer shadow-md transition-transform scale-90 hover:scale-110 z-30"
-                title="Remove label"
               >
-                <LucideIcon name="X" size={10} />
-              </button>
-            </div>
-          ))}
+                <input
+                  type="text"
+                  value={cust.str}
+                  onFocus={() => setFocusedItemId(cust.id)}
+                  onChange={(e) => onCustomTextChange(cust.id, e.target.value)}
+                  className="bg-transparent border-none outline-none focus:bg-white dark:focus:bg-slate-900 border-b border-dashed border-blue-500/20 text-xs text-left focus:ring-1 focus:ring-blue-500 px-1 py-0.5 rounded"
+                  style={{
+                    fontSize: `${cust.fontSize}px`,
+                    fontFamily: fontMeta.css,
+                    fontWeight: fontMeta.weight as any,
+                    color: cust.color,
+                    width: `${Math.max(120, cust.str.length * 8)}px`,
+                  }}
+                />
+                <button
+                  onClick={() => onCustomTextDelete(cust.id)}
+                  className="absolute -top-3.5 -right-3.5 hidden group-hover:flex items-center justify-center w-5.5 h-5.5 bg-slate-500 hover:bg-slate-750 text-white rounded-full p-1 cursor-pointer shadow-md transition-transform scale-90 hover:scale-110 z-30"
+                  title="Remove label"
+                >
+                  <LucideIcon name="X" size={10} />
+                </button>
+              </div>
+            );
+          })}
 
         </div>
       )}
