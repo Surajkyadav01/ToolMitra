@@ -8,6 +8,7 @@ import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import FeatureSection from './components/FeatureSection';
 import AboutSection from './components/AboutSection';
+import RatingsSection from './components/RatingsSection';
 import Footer from './components/Footer';
 import ToolProcessor from './components/ToolProcessor';
 import LucideIcon from './components/LucideIcon';
@@ -259,6 +260,9 @@ export default function App() {
 
             {/* 5. Rich About and expandable FAQ segment */}
             <AboutSection />
+
+            {/* 5.5. Real-time User Reviews & Ratings Section */}
+            <RatingsSection />
 
           </div>
         )}

@@ -158,6 +158,21 @@ export default function Footer({ onSelectCategory, onOpenAbout }: FooterProps) {
               </li>
               <li>
                 <button
+                  onClick={() => {
+                    document.getElementById('ratings-feedback-section')?.scrollIntoView({ behavior: 'smooth' });
+                    // Open modal after small delay
+                    setTimeout(() => {
+                      document.getElementById('open-feedback-button')?.click();
+                    }, 400);
+                  }}
+                  className="hover:text-cyan-400 font-medium transition-colors cursor-pointer text-left flex items-center gap-1.5 text-amber-400"
+                >
+                  <LucideIcon name="Sparkles" size={12} className="text-amber-400" />
+                  <span>{t('rate_experience', 'Rate Our Experience')}</span>
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => handleOpenModal('contact')}
                   className="hover:text-cyan-400 font-medium transition-colors cursor-pointer"
                 >

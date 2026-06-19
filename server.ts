@@ -1,5 +1,7 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import nodemailer from 'nodemailer';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
@@ -29,12 +31,185 @@ function getGeminiClient() {
   return aiInstance;
 }
 
+// Setup email transporter dynamically using env variables
+const getTransporter = () => {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: {
+      user,
+      pass,
+    },
+  });
+};
+
+const sendFeedbackEmail = async (rating: number, feedback: string, userEmail?: string, name?: string) => {
+  const transporter = getTransporter();
+  const dateStr = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }) + ' (Eastern Time/Server)';
+  
+  const mailOptions = {
+    from: process.env.SMTP_USER || 'no-reply@toolmitra.com',
+    to: 'ksurajyadav93@gmail.com',
+    subject: `🌟 [ToolMitra] New ${rating}-Star Rating & Feedback Received!`,
+    text: `Hello Sunil Kumar,\n\nYou have received a new user experience feedback on ToolMitra!\n\nSatisfaction Rating: ${rating}/5 Stars\nSender Name: ${name || 'Anonymous'}\nUser Email: ${userEmail || 'Not Provided'}\nSubmitted On: ${dateStr}\n\nFeedback Comment:\n"${feedback}"\n\nThanks,\nToolMitra Automations`,
+    html: `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #f8fafc; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+        <div style="background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%); padding: 20px; border-radius: 12px; text-align: center; color: white;">
+          <h2 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">🌟 New ToolMitra Feedback Received!</h2>
+          <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Real-time experience submission from user</p>
+        </div>
+        <div style="padding: 25px 15px; color: #1e293b;">
+          <p style="font-size: 16px; margin-top: 0;">Hello <strong>Sunil Kumar</strong>,</p>
+          <p style="font-size: 14px; line-height: 1.6; color: #475569;">A user has just rated their experience on your website, <strong>ToolMitra</strong>. Here are the details of their submission:</p>
+          
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin: 24px 0;">
+            <table border="0" cellpadding="0" cellspacing="0" style="width: 100%; font-size: 14px; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 6px 0; color: #64748b; width: 140px;"><strong>Rating Received:</strong></td>
+                <td style="padding: 6px 0; font-size: 16px; color: #eab308; font-weight: bold;">
+                  ${'★'.repeat(rating)}${'☆'.repeat(5 - rating)} <span style="color: #334155; font-size: 14px; font-weight: normal; margin-left: 5px;">(${rating}/5)</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;"><strong>Sender Name:</strong></td>
+                <td style="padding: 6px 0; color: #1e293b; font-weight: 500;">${name || '<em style="color: #94a3b8;">Anonymous Guest</em>'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;"><strong>Sender Email:</strong></td>
+                <td style="padding: 6px 0;">${userEmail ? `<a href="mailto:${userEmail}" style="color: #4f46e5; text-decoration: underline; font-weight: 500;">${userEmail}</a>` : '<em style="color: #94a3b8;">Not Provided</em>'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b;"><strong>Submitted On:</strong></td>
+                <td style="padding: 6px 0; color: #475569;">${dateStr}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="background-color: #f1f5f9; padding: 20px; border-radius: 12px; border-left: 4px solid #4f46e5; margin: 24px 0;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; text-transform: uppercase; color: #4f46e5; letter-spacing: 0.5px;">User Comment / Suggestion:</p>
+            <p style="margin: 0; font-size: 14px; line-height: 1.6; font-style: italic; color: #334155;">"${feedback || 'No comments left.'}"</p>
+          </div>
+        </div>
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 18px; text-align: center; color: #94a3b8; font-size: 12px;">
+          <p>This notification is processed and dispatched by your Express Node.js application.</p>
+          <p style="margin: 4px 0 0 0;">&copy; ${new Date().getFullYear()} ToolMitra. All rights reserved.</p>
+        </div>
+      </div>
+    `
+  };
+
+  if (!transporter) {
+    console.warn('⚠️ SMTP Server details are not present in .env file. Logged feedback internally without sending email:');
+    console.log(`[Logged Feedback] ${name || 'Anonymous'} (${userEmail || 'No Email'}) rated ${rating}/5. Description: "${feedback}"`);
+    return false;
+  }
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('✅ SMTP Email notification triggered successfully to ksurajyadav93@gmail.com');
+    return true;
+  } catch (err) {
+    console.error('❌ Nodemailer failed to send feedback email:', err);
+    return false;
+  }
+};
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   // JSON parser with a high limit (15MB) for base64 encoded photo uploads
   app.use(express.json({ limit: '15mb' }));
+
+  // GET endpoints for community feedbacks
+  app.get('/api/feedbacks', (req, res) => {
+    try {
+      const filePath = path.join(process.cwd(), 'feedbacks.json');
+      if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const list = JSON.parse(fileContent);
+        return res.json(list);
+      }
+      return res.json([]);
+    } catch (err: any) {
+      console.error('Error fetching feedbacks list:', err);
+      return res.status(500).json({ error: 'FETCH_ERROR', message: err.message });
+    }
+  });
+
+  // POST endpoint to accept a rating / review
+  app.post('/api/feedback', async (req, res) => {
+    try {
+      const { rating, feedback, email, name } = req.body;
+      if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ error: 'RATING_INVALID', message: 'Rating is required and must stand between 1 and 5.' });
+      }
+
+      const filePath = path.join(process.cwd(), 'feedbacks.json');
+      let feedbacksList: any[] = [];
+
+      if (fs.existsSync(filePath)) {
+        try {
+          const fileContent = fs.readFileSync(filePath, 'utf8');
+          feedbacksList = JSON.parse(fileContent);
+        } catch (ex) {
+          console.error('Failed to parse existing feedbacks file. Formatting as empty array.');
+        }
+      }
+
+      // Extract a name if user email is present but name is empty
+      let resolvedName = name ? name.trim() : '';
+      if (!resolvedName) {
+        if (email && email.includes('@')) {
+          const parts = email.split('@')[0];
+          resolvedName = parts.charAt(0).toUpperCase() + parts.slice(1);
+        } else {
+          resolvedName = 'Verified User';
+        }
+      }
+
+      const newFeedback = {
+        id: 'user-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        name: resolvedName,
+        rating: Number(rating),
+        feedback: feedback ? feedback.trim() : '',
+        email: email ? email.trim() : '',
+        date: new Date().toISOString()
+      };
+
+      feedbacksList.unshift(newFeedback);
+
+      // Save to feedback store file
+      fs.writeFileSync(filePath, JSON.stringify(feedbacksList, null, 2), 'utf8');
+
+      // Send the email to creator
+      const emailOutcome = await sendFeedbackEmail(newFeedback.rating, newFeedback.feedback, newFeedback.email, newFeedback.name);
+
+      return res.json({
+        success: true,
+        message: 'Feedback submitted and saved successfully.',
+        emailSent: emailOutcome,
+        feedback: newFeedback
+      });
+
+    } catch (err: any) {
+      console.error('Error submitting feedback response:', err);
+      return res.status(500).json({
+        error: 'SUBMIT_ERROR',
+        message: err.message || 'An unexpected error occurred while writing feedback.'
+      });
+    }
+  });
 
   // Client-side can send the raw extracted PDF text list to have Gemini intelligently reconstruct the Word-compatible layout
   app.post('/api/pdf-to-word', async (req, res) => {

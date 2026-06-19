@@ -1,0 +1,34 @@
+[
+  {
+    "id": "seed-1",
+    "name": "Ramesh Kumar",
+    "rating": 5,
+    "feedback": "Best passport photo maker ever! Replaced the background in one click and generated perfect 2x2 crop. Highly recommended for exam filings.",
+    "email": "ramesh.k@gmail.com",
+    "date": "2026-06-15T12:00:00Z"
+  },
+  {
+    "id": "seed-2",
+    "name": "Priya Sharma",
+    "rating": 5,
+    "feedback": "The signature resizer is super helpful. I compressed my signature photo to under 20KB for the corporate registry portal. Saved me hours of manual editing!",
+    "email": "priya.sharma@outlook.com",
+    "date": "2026-06-16T14:24:00Z"
+  },
+  {
+    "id": "seed-3",
+    "name": "Arun Yadav",
+    "rating": 4,
+    "feedback": "Dual-sided Aadhaar card merger saved me a lot of printer paper. Merged both front and back sides into one single sheet dynamically.",
+    "email": "aruny@gmail.com",
+    "date": "2026-06-17T09:12:00Z"
+  },
+  {
+    "id": "seed-4",
+    "name": "Elena Rostova",
+    "rating": 5,
+    "feedback": "I used the PDF page editor. Highlighting and masking are done entirely offline in real-time, blending perfectly with white page canvas. Excellent privacy guarantee!",
+    "email": "elena.r@yahoo.com",
+    "date": "2026-06-18T18:45:00Z"
+  }
+]
