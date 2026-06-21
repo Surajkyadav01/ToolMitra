@@ -19,7 +19,7 @@ export default function RatingsSection() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form states
-  const [rating, setRating] = useState<number>(5);
+  const [rating, setRating] = useState<number>(0);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [feedback, setFeedback] = useState('');
   const [email, setEmail] = useState('');
@@ -49,7 +49,7 @@ export default function RatingsSection() {
 
   const handleOpenFeedback = () => {
     // Reset form states
-    setRating(5);
+    setRating(0);
     setFeedback('');
     setEmail('');
     setName('');
@@ -291,6 +291,7 @@ export default function RatingsSection() {
                     </div>
                     {/* Emoji Label Indicator */}
                     <span className="text-xs font-semibold text-indigo-600 dark:text-cyan-400 mt-0.5 block">
+                      {rating === 0 && (language === 'hi' ? '⭐ कृपया स्टार चुनकर रेटिंग दें' : '⭐ Please tap a star to rate')}
                       {rating === 1 && (language === 'hi' ? '😞 बेहद असंतुष्ट' : '😞 Not Satisfied / Had issues')}
                       {rating === 2 && (language === 'hi' ? '😐 असंतुष्ट' : '😐 Needs Improvement')}
                       {rating === 3 && (language === 'hi' ? '🙂 ठीक-ठाक' : '🙂 Decent experience')}
